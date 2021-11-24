@@ -14,7 +14,7 @@ class FinanceServiceProvider extends ServiceProvider
     public function register()
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/config.php', self::FINANCE_CONFIG_NAME);
-        $this->mergeConfigFrom(__DIR__ . '/../config/code.php', self::FINANCE_CONFIG_NAME.'-code');
+        $this->mergeConfigFrom(__DIR__ . '/../config/code.php', self::FINANCE_CONFIG_NAME . '-code');
 
     }
 
@@ -32,11 +32,11 @@ class FinanceServiceProvider extends ServiceProvider
             $migrations = [];
 
             foreach ($migrationClasses as $class) {
-                if (!class_exists($class,true)) {
+                if (!class_exists($class, true)) {
                     //Extract word from first upper case letter
                     $words = preg_split('/(?=[A-Z])/', $class);
 
-                    //Remove first element of the array
+                    //Remove first element of the array because it is empty
                     unset($words[0]);
 
                     //change first upper case letter to lower case
@@ -50,7 +50,7 @@ class FinanceServiceProvider extends ServiceProvider
                     //create delay if one second
                     sleep(1);
 
-                    //Add nez migration in list
+                    //Add class migration in list
                     $migrations[__DIR__ . "/../database/migrations/$migrationName.php.stub"] = database_path('migrations/' . date('Y_m_d_His', time()) . "_$migrationName.php");
                 }
             }
@@ -60,8 +60,8 @@ class FinanceServiceProvider extends ServiceProvider
         }
 
         $this->publishes([
-            __DIR__.'/../config/config.php' => config_path(self::FINANCE_CONFIG_NAME.'.php'),
-            __DIR__.'/../config/code.php' => config_path(self::FINANCE_CONFIG_NAME.'-code.php'),
+            __DIR__ . '/../config/config.php' => config_path(self::FINANCE_CONFIG_NAME . '.php'),
+            __DIR__ . '/../config/code.php' => config_path(self::FINANCE_CONFIG_NAME . '-code.php'),
         ], 'config');
 
         $this->registerRoutes();
@@ -73,12 +73,16 @@ class FinanceServiceProvider extends ServiceProvider
         Route::group($this->routeConfiguration(), function () {
             $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
         });
+
+        Route::group(["prefix" => config(self::FINANCE_CONFIG_NAME . ".prefix")], function () {
+            $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
+        });
     }
 
-    protected function routeConfiguration()
+    protected function routeConfiguration(): array
     {
         return [
-            'prefix' => "api/".config(self::FINANCE_CONFIG_NAME . ".prefix"),
+            'prefix' => "api/" . config(self::FINANCE_CONFIG_NAME . ".prefix"),
             'middleware' => config(self::FINANCE_CONFIG_NAME . '.middleware'),
         ];
 

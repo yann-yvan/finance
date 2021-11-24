@@ -6,7 +6,9 @@ namespace NYCorp\Finance\Traits;
 
 
 
-class FinanceAccount
+trait FinanceAccount
 {
+    protected abstract function getId(): int;
 
+    protected abstract function getName(): string;
 }

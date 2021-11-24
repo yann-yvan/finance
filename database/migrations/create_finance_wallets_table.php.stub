@@ -15,7 +15,7 @@ class CreateFinanceWalletsTable extends Migration
     {
         Schema::create('finance_wallets', function (Blueprint $table) {
             $table->string('id');
-            $table->string("transaction_id");
+            $table->string("transaction_id")->unique();
             $table->string("credit_wallet_id");
             $table->primary("id");
 
