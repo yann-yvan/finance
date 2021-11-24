@@ -1,0 +1,31 @@
+{
+  "name": "nycorp/finance",
+  "description": "to handle wallet",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Yann NGALLE",
+      "email": "yann.ngalle@outlook.com"
+    }
+  ],
+  "require": {
+    "ext-json": "*"
+  },
+  "minimum-stability": "dev",
+  "autoload": {
+    "psr-4": {
+      "NYCorp\\Finance\\": "src"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "NYCorp\\Finance\\FinanceServiceProvider"
+      ]
+    }
+  },
+  "require-dev": {
+    "orchestra/testbench": "^6.0"
+  }
+}
