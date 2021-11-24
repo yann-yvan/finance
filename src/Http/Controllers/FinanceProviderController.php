@@ -14,7 +14,7 @@ class FinanceProviderController extends Controller
     {
         try {
             PaymentProviderGateway::load();
-            return $this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.SUCCESS'), FinanceProvider::all(["assigned_id","name"]));
+            return $this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.SUCCESS'), FinanceProvider::all(["assigned_id", "name"]));
         } catch (\Exception $exception) {
             return $this->respondError($exception);
         }

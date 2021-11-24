@@ -53,7 +53,7 @@ class Builder
     /**
      * @return array
      */
-    public function reply()
+    public function reply(): array
     {
         $data = [
             'status' => $this->status,
@@ -72,7 +72,7 @@ class Builder
      * @param  $code
      * @return bool
      */
-    private function isNotDocCode($code)
+    private function isNotDocCode($code): bool
     {
         $codes = array();
         foreach (config(FinanceServiceProvider::FINANCE_CONFIG_NAME.'-code') as $item => $value) {
@@ -81,7 +81,7 @@ class Builder
         return !in_array($code, $codes);
     }
 
-    private function defaultMessage($code, $message)
+    private function defaultMessage($code, $message): string
     {
         if (empty($message))
             foreach (config(FinanceServiceProvider::FINANCE_CONFIG_NAME.'-code') as $item => $value) {

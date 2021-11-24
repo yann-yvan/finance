@@ -73,7 +73,7 @@ class FinanceTransactionController extends Controller
      *
      * @return string
      */
-    private function getStartSignature($data)
+    private function getStartSignature($data): string
     {
         return md5($data["amount"] . $data["finance_provider_id"] . $data["state"] . $data["id"]);
     }
