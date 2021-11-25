@@ -5,6 +5,7 @@ namespace NYCorp\Finance\Http\Controllers;
 
 
 use Illuminate\Http\Request;
+use NYCorp\Finance\Http\Payment\DohonePaymentProvider;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Http\ResponseParser\DefResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
@@ -131,9 +132,7 @@ class FinanceController extends Controller
                     return $walletResponse->getResponse();
                 }
                 $result = PaymentProviderGateway::load($transactionResponse->getData()["finance_provider_id"])->deposit(FinanceTransaction::find($transactionResponse->getData()["id"]));
-                if (!$result->successful()) {
-                    throw new \Exception($result->getResponse());
-                }
+                return $this->reply($result);
             }
             return $transactionResponse->getResponse();
         } catch (\Exception | \Throwable $exception) {
@@ -151,7 +150,13 @@ class FinanceController extends Controller
                 if (!$walletResponse->isSuccess()) {
                     return $walletResponse->getResponse();
                 }
-                PaymentProviderGateway::load($transactionResponse->getData()["finance_provider_id"])->withdrawal(FinanceTransaction::find($transactionResponse->getData()["id"]));
+                $gateway = PaymentProviderGateway::load($transactionResponse->getData()["finance_provider_id"])->withdrawal(FinanceTransaction::find($transactionResponse->getData()["id"]));
+
+                if ($gateway->successful() and $gateway->isWithdrawalRealTime()) {
+                    FinanceTransactionController::close($gateway->getTransaction());
+                }
+
+                return $this->reply($gateway);
             }
             return $transactionResponse->getResponse();
         } catch (\Exception | \Throwable $exception) {
@@ -159,9 +164,58 @@ class FinanceController extends Controller
         }
     }
 
-    public function depositValidation(Request $request)
+    public function onDepositSuccessDohone(Request $request)
+    {
+        FinanceTransactionController::close((new DohonePaymentProvider())->onDepositSuccess($request)->getTransaction());
+    }
+
+
+    public function onFailureOrCancellation(Request $request)
     {
 
+    }
+
+    /**
+     * @OA\Post(
+     *    path="/api/finance/dohone-sms-verify",
+     *   tags={"Wallet"},
+     *   summary="MObile money sms verification",
+     *   description="",
+     *   operationId="MomoVerify",
+     *   @OA\Parameter(
+     *         name="code",
+     *         in="query",
+     *         description="sms code",
+     *         required=true,
+     *         @OA\Schema(
+     *         type="string"
+     *         ),
+     *         style="form"
+     *     ),
+     *   @OA\Parameter(
+     *         name="phone",
+     *         in="query",
+     *         description="sms code receiver number",
+     *         required=true,
+     *         @OA\Schema(
+     *         type="string"
+     *         ),
+     *         style="form"
+     *     ),
+     *     @OA\Response(
+     *     response=200,
+     *     description="successful operation",
+     *     @OA\Schema(type="json"),
+     *
+     *   ),
+     * )
+     * @param Request $request
+     *
+     * @return array|JsonResponse
+     */
+    public function dohoneSmsVerification(Request $request)
+    {
+        return $this->reply((new DohonePaymentProvider())->SMSConfirmation($request->code, $request->phone));
     }
 
 }

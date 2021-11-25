@@ -15,7 +15,7 @@ class FinanceTransaction extends Model
     protected $fillable = ['amount', 'id', 'start_log', 'description', 'start_signature', 'finance_provider_id', 'state'];
     protected $hidden = ["start_signature", "start_log", "end_log", "end_signature"];
 
-    public static function getStates()
+    public static function getStates(): array
     {
         return [FinanceTransaction::STATE_PENDING, FinanceTransaction::STATE_SUCCESS, FinanceTransaction::STATE_FAILED];
     }
@@ -23,5 +23,4 @@ class FinanceTransaction extends Model
     public function wallet(){
         return $this->hasOne("NYCorp\Finance\Models\FinanceWallet");
     }
-
 }
