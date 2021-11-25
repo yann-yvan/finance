@@ -41,7 +41,7 @@ class FinanceWalletController extends Controller
             'id' => 'required',
             'credit_wallet_id' => ['required'],
             'owner_id' => ['required', 'exists:users,id'],
-            'transaction_id' => ['required', 'exists:finance_transactions,id'],
+            'finance_transaction_id' => ['required', 'exists:finance_transactions,id'],
         ]);
     }
 
@@ -59,7 +59,7 @@ class FinanceWalletController extends Controller
                 'id' => strtoupper(Carbon::now()->shortMonthName) . time(),
                 'credit_wallet_id' => strtoupper(Carbon::now()->shortMonthName) . time(),
                 'owner_id' => 1,
-                'transaction_id' => $transaction["id"],
+                'finance_transaction_id' => $transaction["id"],
             ];
             return $this->save($data);
         } catch (Exception   $exception) {

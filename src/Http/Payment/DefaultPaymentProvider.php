@@ -23,12 +23,12 @@ class DefaultPaymentProvider extends PaymentProviderGateway
         return env("APP_NAME");
     }
 
-    public function deposit(FinanceTransaction $transaction)
+    public function deposit(FinanceTransaction $transaction): PaymentProviderGateway
     {
         // TODO: Implement deposit() method.
     }
 
-    public function withdrawal(FinanceTransaction $transaction)
+    public function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway
     {
         // TODO: Implement withdrawal() method.
     }

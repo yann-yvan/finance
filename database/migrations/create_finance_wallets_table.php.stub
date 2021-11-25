@@ -15,7 +15,7 @@ class CreateFinanceWalletsTable extends Migration
     {
         Schema::create('finance_wallets', function (Blueprint $table) {
             $table->string('id');
-            $table->string("transaction_id")->unique();
+            $table->string("finance_transaction_id")->unique();
             $table->string("credit_wallet_id");
             $table->primary("id");
 
@@ -25,7 +25,7 @@ class CreateFinanceWalletsTable extends Migration
                 ->onUpdate("cascade")
                 ->onDelete("cascade");
 
-            $table->foreign("transaction_id")
+            $table->foreign("finance_transaction_id")
                 ->references("id")
                 ->on("finance_transactions")
                 ->onUpdate("cascade")

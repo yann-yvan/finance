@@ -68,7 +68,7 @@ class Controller extends BaseController
 
     }
 
-    protected function respondError(Exception $exception)
+    protected function respondError( $exception)
     {
         return $this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), env("APP_ENV") == "local" ? $exception->getTrace() : null, $exception->getMessage());
     }

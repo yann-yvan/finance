@@ -10,11 +10,14 @@ use NYCorp\Finance\Models\FinanceProvider;
 class PaymentProviderGateway
 {
 
+    protected $successful = false;
+    protected $response;
     private $financeProvider;
 
     public static function load($id = null): PaymentProviderGateway
     {
         $requestedProvider = new PaymentProviderGateway();
+        $requestedProvider->financeProvider = new FinanceProvider();
         $providers = config(FinanceServiceProvider::FINANCE_CONFIG_NAME . ".payment_providers");
         foreach ($providers as $clazz) {
             try {
@@ -30,6 +33,7 @@ class PaymentProviderGateway
                         ]);
 
                     if ($id == $provider->getId()) {
+                        $requestedProvider = $provider;
                         $requestedProvider->financeProvider = $registeredProvider;
                     }
                 }
@@ -38,14 +42,6 @@ class PaymentProviderGateway
             }
         }
         return $requestedProvider;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getFinanceProvider()
-    {
-        return $this->financeProvider;
     }
 
     protected function isAvailable(): bool
@@ -61,5 +57,29 @@ class PaymentProviderGateway
     protected function isDepositAvailable(): bool
     {
         return true;
+    }
+
+    /**
+     * @return bool
+     */
+    public function successful(): bool
+    {
+        return $this->successful;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getResponse()
+    {
+        return $this->response;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getFinanceProvider()
+    {
+        return $this->financeProvider;
     }
 }

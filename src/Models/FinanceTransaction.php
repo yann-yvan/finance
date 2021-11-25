@@ -20,4 +20,8 @@ class FinanceTransaction extends Model
         return [FinanceTransaction::STATE_PENDING, FinanceTransaction::STATE_SUCCESS, FinanceTransaction::STATE_FAILED];
     }
 
+    public function wallet(){
+        return $this->hasOne("NYCorp\Finance\Models\FinanceWallet");
+    }
+
 }

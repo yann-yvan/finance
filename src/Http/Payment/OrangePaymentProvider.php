@@ -23,12 +23,12 @@ class OrangePaymentProvider extends PaymentProviderGateway
         return "Orange";
     }
 
-    public function deposit(FinanceTransaction $transaction)
+    public function deposit(FinanceTransaction $transaction): PaymentProviderGateway
     {
         // TODO: Implement deposit() method.
     }
 
-    public function withdrawal(FinanceTransaction $transaction)
+    public function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway
     {
         // TODO: Implement withdrawal() method.
     }
