@@ -118,10 +118,10 @@ class FinanceTransactionController extends Controller
         (new FinanceTransactionController())->checksum($transaction);
 
         if ($transaction->state == FinanceTransaction::STATE_SUCCESS) {
-            $clazz = config(Finance::FINANCE_CONFIG_NAME . "depot_success_notification.class");
-            $method = config(Finance::FINANCE_CONFIG_NAME . "depot_success_notification.method");
+            $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
+            $method = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.method");
             if (!empty($clazz) and !empty($method)) {
-                (new $clazz)->{$method}($transaction->wallet, $transaction->wallet->owner);
+                (new $clazz())->{$method}($transaction->wallet, $transaction->wallet->owner);
             }
         }
     }

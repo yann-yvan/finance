@@ -31,5 +31,5 @@ return [
        | E.g. [ 'class' => \NYCorp\Finance\Http\Payment\Notification::class, 'method' => 'success' ]
        |
        */
-    'depot_success_notification' => ["class" => null, "method" => null],
+    'deposit_success_notification' => ["class" => null, "method" => null],
 ];
