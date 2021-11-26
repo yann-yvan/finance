@@ -180,8 +180,10 @@ class FinanceTransactionController extends Controller
         return (new FinanceTransactionController())->store($request, $request->get("amount"), $request->get("description"), PaymentProviderGateway::load($request->get("finance_provider_id"))->getFinanceProvider(), self::WITHDRAWAL);
     }
 
-    public static function isTrue(FinanceTransaction $transaction): bool
+    public static function isTrue(FinanceTransaction &$transaction): bool
     {
+        ///TODO if signature check fail and STATE is SUCCESS then restore the transaction to it state by reading the trace field in bd
+        /// add log in user finance account the check signature again if fail again block user finance account anf fire exception
         return (new FinanceTransactionController())->isEndSignature($transaction);
     }
 
