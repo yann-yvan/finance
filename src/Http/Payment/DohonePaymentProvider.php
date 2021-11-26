@@ -75,7 +75,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
 
     public function onDepositSuccess(Request $request): PaymentProviderGateway
     {
-        $this->transaction = FinanceTransaction::find($request->ref);
+        $this->transaction = FinanceTransaction::find($request->rI);
         if (empty($this->transaction)) {
             $this->message = "Order not found !";
             $this->successful = false;

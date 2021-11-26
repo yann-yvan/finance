@@ -117,6 +117,7 @@ class FinanceTransactionController extends Controller
     {
         (new FinanceTransactionController())->checksum($transaction);
 
+        //Launch custom action after success
         if ($transaction->state == FinanceTransaction::STATE_SUCCESS) {
             $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
             $method = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.method");

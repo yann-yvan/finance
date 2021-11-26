@@ -7,7 +7,7 @@ namespace NYCorp\Finance\Traits;
 use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Models\FinanceTransaction;
 
-trait FinanceAccount
+trait FinanceAccountTrait
 {
     //('finance_transactions', 'finance_transactions.id', 'finance_wallets.finance_transaction_id')->where('finance_wallets.owner_id', $this->getKey())
     public function getBalanceAttribute()

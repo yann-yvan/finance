@@ -9,7 +9,7 @@ Route::ANY('/providers', [FinanceProviderController::class, 'providers'])->name(
 Route::group(['prefix' => 'deposit'], function () {
     Route::POST('/', [FinanceController::class, 'deposit'])->name('finance.wallet.deposit');
     Route::group(['prefix' => 'success'], function () {
-        Route::POST('/dohone', [FinanceController::class, 'onDepositSuccessDohone'])->name('finance.wallet.deposit.success.dohone');
+        Route::ANY('/dohone', [FinanceController::class, 'onDepositSuccessDohone'])->name('finance.wallet.deposit.success.dohone');
     });
 });
 

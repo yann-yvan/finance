@@ -5,7 +5,6 @@ namespace NYCorp\Finance\Http\Controllers;
 
 
 use Illuminate\Http\Request;
-use Illuminate\Routing\Route;
 use NYCorp\Finance\Http\Payment\DohonePaymentProvider;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Http\ResponseParser\DefResponse;
@@ -128,7 +127,7 @@ class FinanceController extends Controller
         try {
             $transactionResponse = new DefResponse(FinanceTransactionController::deposit($request));
             if ($transactionResponse->isSuccess()) {
-                $walletResponse = new DefResponse(FinanceWalletController::build(auth()->user(), $transactionResponse->getData()));
+                $walletResponse = new DefResponse(FinanceWalletController::build($transactionResponse->getData()));
                 if (!$walletResponse->isSuccess()) {
                     return $walletResponse->getResponse();
                 }
@@ -146,7 +145,7 @@ class FinanceController extends Controller
         try {
             $transactionResponse = new DefResponse(FinanceTransactionController::withdrawal($request));
             if ($transactionResponse->isSuccess()) {
-                $walletResponse = new DefResponse(FinanceWalletController::build(auth()->user(), $transactionResponse->getData()));
+                $walletResponse = new DefResponse(FinanceWalletController::build($transactionResponse->getData()));
                 if (!$walletResponse->isSuccess()) {
                     return $walletResponse->getResponse();
                 }
