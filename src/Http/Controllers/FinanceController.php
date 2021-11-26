@@ -5,6 +5,7 @@ namespace NYCorp\Finance\Http\Controllers;
 
 
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use NYCorp\Finance\Http\Payment\DohonePaymentProvider;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Http\ResponseParser\DefResponse;
@@ -136,7 +137,6 @@ class FinanceController extends Controller
             }
             return $transactionResponse->getResponse();
         } catch (\Exception | \Throwable $exception) {
-            error_log($exception->getMessage());
             return $this->respondError($exception);
         }
     }

@@ -7,6 +7,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use NYCorp\Finance\FinanceServiceProvider;
+use NYCorp\Finance\Http\Core\Finance;
 use NYCorp\Finance\Models\FinanceWallet;
 
 
@@ -21,7 +22,7 @@ class FinanceWalletController extends Controller
      */
     public static function build($userAccount,$transaction)
     {
-        return (new FinanceWalletController())->deposit($userAccount,$transaction);
+        return (new FinanceWalletController())->deposit($transaction);
     }
 
     /**
@@ -52,20 +53,21 @@ class FinanceWalletController extends Controller
      * @param $transaction
      * @return array|\Illuminate\Http\JsonResponse|void
      */
-    public function deposit($userAccount,$transaction)
+    private function deposit($transaction)
     {
         try {
             $data = [
                 'id' => strtoupper(Carbon::now()->shortMonthName) . time(),
                 'credit_wallet_id' => strtoupper(Carbon::now()->shortMonthName) . time(),
-                'owner_id' => 1,
+                'owner_id' => Finance::getFinanceAccount()->id,
                 'finance_transaction_id' => $transaction["id"],
             ];
             return $this->save($data);
         } catch (Exception   $exception) {
-            return $this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), $exception, $exception->getMessage());
+            return $this->liteResponse(config(Finance::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), $exception, $exception->getMessage());
         }
     }
+
 
     /**
      * Show the form for creating a new resource.

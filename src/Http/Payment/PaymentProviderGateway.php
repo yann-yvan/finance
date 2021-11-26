@@ -4,7 +4,7 @@
 namespace NYCorp\Finance\Http\Payment;
 
 
-use NYCorp\Finance\FinanceServiceProvider;
+use NYCorp\Finance\Http\Core\Finance;
 use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceTransaction;
 
@@ -27,7 +27,7 @@ class PaymentProviderGateway
     {
         $requestedProvider = new PaymentProviderGateway();
         $requestedProvider->financeProvider = new FinanceProvider();
-        $providers = config(FinanceServiceProvider::FINANCE_CONFIG_NAME . ".payment_providers");
+        $providers = config(Finance::FINANCE_CONFIG_NAME . ".payment_providers");
         foreach ($providers as $clazz) {
             try {
                 $provider = new $clazz();

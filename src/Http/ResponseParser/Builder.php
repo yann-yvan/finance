@@ -6,7 +6,7 @@ namespace NYCorp\Finance\Http\ResponseParser;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use NYCorp\Finance\FinanceServiceProvider;
+use NYCorp\Finance\Http\Core\Finance;
 
 class Builder
 {
@@ -75,7 +75,7 @@ class Builder
     private function isNotDocCode($code): bool
     {
         $codes = array();
-        foreach (config(FinanceServiceProvider::FINANCE_CONFIG_NAME.'-code') as $item => $value) {
+        foreach (config(Finance::FINANCE_CONFIG_NAME.'-code') as $item => $value) {
             $codes = array_merge($codes, array_values($value));
         }
         return !in_array($code, $codes);
@@ -84,7 +84,7 @@ class Builder
     private function defaultMessage($code, $message): string
     {
         if (empty($message))
-            foreach (config(FinanceServiceProvider::FINANCE_CONFIG_NAME.'-code') as $item => $value) {
+            foreach (config(Finance::FINANCE_CONFIG_NAME.'-code') as $item => $value) {
                 foreach ($value as $key => $val)
                     if ($val == $code)
                         return Str::upper($item) . ' ' . $key;

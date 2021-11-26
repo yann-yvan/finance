@@ -8,7 +8,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Validator;
-use NYCorp\Finance\FinanceServiceProvider;
+use NYCorp\Finance\Http\Core\Finance;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Http\ResponseParser\Builder;
 use NYCorp\Finance\Http\ResponseParser\DefResponse;
@@ -19,13 +19,13 @@ class Controller extends BaseController
     {
         $validator = $this->validator($data);
         if ($validator->fails())
-            return $this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.VALIDATION_ERROR'), $validator->errors());
+            return $this->liteResponse(config(Finance::FINANCE_CONFIG_NAME . '-code.request.VALIDATION_ERROR'), $validator->errors());
         try {
-            $response = new DefResponse($this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.SUCCESS'), $this->create($data)));
+            $response = new DefResponse($this->liteResponse(config(Finance::FINANCE_CONFIG_NAME . '-code.request.SUCCESS'), $this->create($data)));
             $this->saved($response);
             return $response->getResponse();
         } catch (\Exception $exception) {
-            return $this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), env("APP_ENV") == "local" ? $exception->getTrace() : null, $exception->getMessage());
+            return $this->liteResponse(config(Finance::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), env("APP_ENV") == "local" ? $exception->getTrace() : null, $exception->getMessage());
         }
     }
 
@@ -60,7 +60,7 @@ class Controller extends BaseController
             $builder->setToken($token);
             return response()->json($builder->reply(), 200, [], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         } catch (Exception $e) {
-            return $this->liteResponse(\config(FinanceServiceProvider::FINANCE_CONFIG_NAME . "-code.request.EXCEPTION"),  $e->getMessage());
+            return $this->liteResponse(\config(Finance::FINANCE_CONFIG_NAME . "-code.request.EXCEPTION"),  $e->getMessage());
         }
     }
 
@@ -71,11 +71,11 @@ class Controller extends BaseController
 
     protected function reply(PaymentProviderGateway $gateway)
     {
-        return $this->liteResponse($gateway->successful() ? config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.SUCCESS') : config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), $gateway->getResponse(), $gateway->getMessage());
+        return $this->liteResponse($gateway->successful() ? config(Finance::FINANCE_CONFIG_NAME . '-code.request.SUCCESS') : config(Finance::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), $gateway->getResponse(), $gateway->getMessage());
     }
 
     protected function respondError($exception)
     {
-        return $this->liteResponse(config(FinanceServiceProvider::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), env("APP_ENV") == "local" ? $exception->getTrace() : null, $exception->getMessage());
+        return $this->liteResponse(config(Finance::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), env("APP_ENV") == "local" ? $exception->getTrace() : null, $exception->getMessage());
     }
 }
