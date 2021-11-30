@@ -20,9 +20,9 @@ class DohonePaymentProvider extends PaymentProviderGateway
 
     protected $isWithdrawalRealTime = true;
 
-    public function getId(): int
+    public function getId(): string
     {
-        return 3;
+        return "3";
     }
 
     public function getName(): string

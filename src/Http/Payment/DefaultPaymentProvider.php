@@ -14,9 +14,9 @@ class DefaultPaymentProvider extends PaymentProviderGateway
     use PaymentProviderTrait;
     use FinanceProviderTrait;
 
-    public function getId(): int
+    public function getId(): string
     {
-        return 1;
+        return "1";
     }
 
     public function getName(): string

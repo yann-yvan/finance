@@ -14,9 +14,9 @@ class OrangePaymentProvider extends PaymentProviderGateway
     use PaymentProviderTrait;
     use FinanceProviderTrait;
 
-    public function getId(): int
+    public function getId(): string
     {
-        return 2;
+        return "2";
     }
 
     public function getName(): string
