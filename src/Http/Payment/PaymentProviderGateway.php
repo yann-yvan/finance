@@ -6,7 +6,10 @@ namespace NYCorp\Finance\Http\Payment;
 
 use NYCorp\Finance\Http\Core\Finance;
 use NYCorp\Finance\Models\FinanceProvider;
+use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
+use NYCorp\Finance\Models\FinanceWallet;
+use NYCorp\Finance\Scope\InvalidWalletScope;
 
 class PaymentProviderGateway
 {
@@ -119,7 +122,7 @@ class PaymentProviderGateway
     /**
      * @return mixed
      */
-    public function getResponse()
+    public function getResponse(): FinanceProviderGatewayResponse
     {
         return $this->response;
     }
@@ -154,5 +157,13 @@ class PaymentProviderGateway
     protected function setExternalId($externalId): void
     {
         $this->transaction->external_id = $externalId;
+    }
+
+    protected function getWallet(FinanceTransaction $transaction)
+    {
+        $wallet = FinanceWallet::withoutGlobalScope(InvalidWalletScope::class)->where("finance_transaction_id",$transaction->id)->first();
+        if (empty($wallet))
+            $wallet = new FinanceWallet();
+        return $wallet;
     }
 }

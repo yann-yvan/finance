@@ -9,6 +9,7 @@ use Dohone\PayOut\DohonePayOut;
 use Exception;
 use Illuminate\Http\Request;
 use NYCorp\Finance\Http\Core\Finance;
+use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Traits\FinanceProviderTrait;
 use NYCorp\Finance\Traits\PaymentProviderTrait;
@@ -46,7 +47,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
         $result = $api->get();
         $this->successful = $result->isSuccess();
         $this->message = $result->getMessage();
-        $this->response = ["errors" => $result->getErrors(), "sms_verification_required" => $result->shouldVerifySMS(), "payment_url" => $result->getPaymentUrl()];
+        $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, $result->getErrors(), $result->shouldVerifySMS(), $result->getPaymentUrl());
         return $this;
     }
 
@@ -65,7 +66,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
         $this->successful = $result->isSuccess();
         $this->setTransaction($transaction);
         $this->message = $result->getMessage();
-        $this->response = ["errors" => $result->getErrors(), "sms_verification_required" => $result->shouldVerifySMS(), "payment_url" => $result->getPaymentUrl()];
+        $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, $result->getErrors(), $result->shouldVerifySMS(), $result->getPaymentUrl());
         if ($this->successful()) {
             $this->message = "Well Done";
             $this->setExternalId($result->getMessage());
@@ -79,7 +80,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
         if (empty($this->transaction)) {
             $this->message = "Order not found !";
             $this->successful = false;
-            $this->response = $request->all();
+            $this->response = new FinanceProviderGatewayResponse(null, null, $request->all());
             return $this;
         }
 
@@ -90,6 +91,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
                 $this->message = "Well Done";
                 $this->setExternalId($data["idReqDoh"]);
             }
+            $this->response = new FinanceProviderGatewayResponse($data["rI"], null, $request->all());
         } catch (Exception $exception) {
             $this->message = $exception->getMessage();
         }
@@ -109,7 +111,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
             ->get();
         $this->successful = $result->isSuccess();
         $this->message = $result->getMessage();
-        $this->response = ["errors" => $result->getErrors(), "sms_verification_required" => $result->shouldVerifySMS(), "payment_url" => $result->getPaymentUrl()];
+        $this->response = new FinanceProviderGatewayResponse(null, null, $result->getErrors(), $result->shouldVerifySMS(), $result->getPaymentUrl());
         return $this;
     }
 }

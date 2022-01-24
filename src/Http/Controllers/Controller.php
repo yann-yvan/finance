@@ -71,7 +71,7 @@ class Controller extends BaseController
 
     protected function reply(PaymentProviderGateway $gateway)
     {
-        return $this->liteResponse($gateway->successful() ? config(Finance::FINANCE_CONFIG_NAME . '-code.request.SUCCESS') : config(Finance::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), $gateway->getResponse(), $gateway->getMessage());
+        return $this->liteResponse($gateway->successful() ? config(Finance::FINANCE_CONFIG_NAME . '-code.request.SUCCESS') : config(Finance::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), $gateway->getResponse()->toArray(), $gateway->getMessage());
     }
 
     protected function respondError($exception)
