@@ -1,5 +1,9 @@
 <?php
 return [
+    'default_payment_provider_id' => 'LOCAL_PROVIDER',
+    'default_payment_provider_name' => env('APP_NAME')."'s Local Provider",
+
+
     'prefix' => 'finance',
     'middleware' => ['api'],
 

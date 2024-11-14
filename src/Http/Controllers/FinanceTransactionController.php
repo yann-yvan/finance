@@ -5,105 +5,105 @@ namespace NYCorp\Finance\Http\Controllers;
 
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Core\Finance;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
+use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceTransaction;
-use NYCorp\Finance\Models\FinanceWallet;
-use NYCorp\Finance\Scope\InvalidWalletScope;
+use Nycorp\LiteApi\Exceptions\LiteResponseException;
+use Nycorp\LiteApi\Models\ResponseCode;
 
 class FinanceTransactionController extends Controller
 {
-    const DEPOSIT = 0;
-    const WITHDRAWAL = 1;
+    private Model $accountable;
+
+    /**
+     * @param Model $accountable
+     */
+    public function __construct(Model $accountable)
+    {
+        parent::__construct();
+        $this->accountable = $accountable;
+    }
+
 
     /**
      * Display a listing of the resource.
      *
      * @param Request $request
      *
-     * @return \Illuminate\Http\Response
+     * @return JsonResponse
+     * @throws Exception
      */
-    public static function deposit(Request $request)
+    public static function init(Request $request, Model $accountable, string $movement): JsonResponse
     {
-        return (new FinanceTransactionController())->store($request, $request->get("amount"), $request->get("description"), PaymentProviderGateway::load($request->get("finance_provider_id"))->getFinanceProvider());
+        return (new FinanceTransactionController($accountable))->store($request, PaymentProviderGateway::load($request->get("provider_id"))->getFinanceProvider(), $movement);
     }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @param \Illuminate\Http\Request $request
-     * @param                          $amount
-     * @param                          $description
-     * @param FinanceProvider          $provider
-     * @param int                      $financeMovement
+     * @param Request $request
+     * @param FinanceProvider $provider
+     * @param string $financeMovement
      *
-     * @return array|\Illuminate\Http\JsonResponse|\Illuminate\Http\Response
+     * @return JsonResponse
+     * @throws Exception
      */
-    private function store(Request $request, $amount, $description, FinanceProvider $provider, $financeMovement = self::DEPOSIT)
+    private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT): JsonResponse
     {
+        $rawAmount = $request->get("amount");
+        $description = $request->get("description");
+
         try {
-            if (!$provider->exist() or !$provider->isAvailable()) {
-                throw new Exception("Provider unavailable");
+            if (!$provider->isAvailable()) {
+                throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, "Provider unavailable");
             }
 
-            if (($financeMovement == self::DEPOSIT && !$provider->isDepositAvailable()) || ($financeMovement == self::WITHDRAWAL && !$provider->isWithdrawalAvailable())) {
-                throw new Exception("Provider Service unavailable");
+            if (($financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT && !$provider->isDepositAvailable()) || ($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT && !$provider->isWithdrawalAvailable())) {
+                throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, "Provider Service unavailable");
             }
 
-            $amount = $financeMovement == self::DEPOSIT ? abs($amount) : -abs($amount);
+            $amount = $financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT ? abs($rawAmount) : -abs($rawAmount);
 
-            if ($financeMovement == self::WITHDRAWAL) {
-                //Check balance with the absolute value of the desire amount to withdrawal
-                if (!$this->hasEnoughBalance(abs($amount))) {
-                    throw new Exception("Not enough balance please make a deposit !!");
-                }
+            //Check balance with the absolute value of the desire amount to withdrawal
+            if (($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT) && !$this->hasEnoughBalance(abs($rawAmount))) {
+                throw new LiteResponseException(ResponseCode::REQUEST_VALIDATION_ERROR, "Not enough balance please make a deposit !!");
             }
 
             $data = [
-                'id' => strtoupper(Carbon::now()->shortMonthName) . time(),
-                'amount' => $amount,
-                'description' => $description,
-                'state' => FinanceTransaction::STATE_PENDING,
-                'start_log' => $this->getHttpLog($request),
-                'finance_provider_id' => $provider->id,
+                FinanceTransaction::AMOUNT => $amount,
+                FinanceTransaction::DESCRIPTION => $description,
+                FinanceTransaction::START_LOG => self::getHttpLog($request),
+                FinanceTransaction::FINANCE_PROVIDER_ID => $provider->id,
             ];
-            $data["start_signature"] = $this->getStartSignature($data);
             return $this->save($data);
+        } catch (LiteResponseException $exception) {
+            return $exception->toResponse();
         } catch (Exception   $exception) {
-            return $this->respondError($exception);
+            Log::error('Error during transaction creation', $exception->getTrace() ?? []);
+            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: 'Unable to init transaction');
         }
     }
 
     private function hasEnoughBalance($amount): bool
     {
-        $force = config(Finance::FINANCE_CONFIG_NAME . ".force_balance_check_min_amount") >= $amount;
-        return Finance::getFinanceAccount()->getBalance($force) >= $amount;
+        $force = ConfigReader::getMinAmountCheckForce() >= $amount;
+        return $this->accountable->canWithdraw($amount, $force);
     }
 
-    private function getHttpLog(Request $request)
+    private static function getHttpLog(Request $request): array
     {
-        return json_encode([
+        return [
             "parameters" => $request->all(),
             "hosts" => $request->getHost(),
-            //"trace"=>has,
             "ips" => $request->ips(),
-        ]);
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param $data
-     *
-     * @return string
-     */
-    private function getStartSignature($data): string
-    {
-        return md5($data["amount"] . $data["finance_provider_id"] . $data["state"] . $data["id"]);
+        ];
     }
 
     /**
@@ -113,113 +113,62 @@ class FinanceTransactionController extends Controller
      *
      * @return void
      */
-    public static function close(FinanceTransaction $transaction)
+    public static function close(FinanceTransaction $transaction): void
     {
-        (new FinanceTransactionController())->checksum($transaction);
+        self::checksum($transaction);
 
         //Launch custom action after success
-        if ($transaction->state == FinanceTransaction::STATE_SUCCESS) {
+        if ($transaction->state === FinanceTransaction::STATE_COMPLETED) {
             $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
             $method = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.method");
-            if (!empty($clazz) and !empty($method)) {
+            if (!empty($clazz) && !empty($method)) {
                 (new $clazz())->{$method}($transaction->wallet, $transaction->wallet->owner);
             }
         }
     }
 
-    private function checksum(FinanceTransaction $transaction)
+    private static function checksum(FinanceTransaction $transaction): void
     {
         //Check first if the transaction integrity
-        if (!empty($transaction->external_id) and $this->isStartSignature($transaction)) {
-            $transaction->state = FinanceTransaction::STATE_SUCCESS;
-        } else
+        if (!empty($transaction->external_id)) {
+            $transaction->state = FinanceTransaction::STATE_COMPLETED;
+        } else {
             $transaction->state = FinanceTransaction::STATE_FAILED;
+        }
 
-        $transaction->end_log = $this->getHttpLog(\request());
+        $transaction->end_log = self::getHttpLog(\request());
         $transaction->verify_at = Carbon::now();
 
-        //Set in last position to make sure it consider all updated value
-        $transaction->end_signature = $this->getEndSignature($transaction);
-
         $transaction->save();
-    }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param FinanceTransaction $transaction
-     *
-     * @return bool
-     */
-    private function isStartSignature(FinanceTransaction $transaction): bool
-    {
-        return strcmp($this->getStartSignature(["amount" => $transaction->amount, "finance_provider_id" => $transaction->finance_provider_id, "state" => $transaction->state, "id" => $transaction->id]), $transaction->start_signature) == 0;
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param FinanceTransaction $transaction
-     *
-     * @return string
-     */
-    private function getEndSignature(FinanceTransaction $transaction): string
-    {
-        return md5($transaction->start_signature . $transaction->amount . $transaction->state . $transaction->verify_at . $transaction->external_id . FinanceWallet::withoutGlobalScope(InvalidWalletScope::class)->where("finance_transaction_id", $transaction->id)->get()->first()->id);
-    }
-
-    /**
-     * Display a listing of the resource.
-     *
-     * @param Request $request
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public static function withdrawal(Request $request)
-    {
-        return (new FinanceTransactionController())->store($request, $request->get("amount"), $request->get("description"), PaymentProviderGateway::load($request->get("finance_provider_id"))->getFinanceProvider(), self::WITHDRAWAL);
-    }
-
-    public static function isTrue(FinanceTransaction &$transaction): bool
-    {
-        ///TODO if signature check fail and STATE is SUCCESS then restore the transaction to it state by reading the trace field in bd
-        /// add log in user finance account the check signature again if fail again block user finance account anf fire exception
-        return (new FinanceTransactionController())->isEndSignature($transaction);
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param FinanceTransaction $transaction
-     *
-     * @return bool
-     */
-    private function isEndSignature(FinanceTransaction $transaction): bool
-    {
-        return strcmp($this->getEndSignature($transaction), $transaction->end_signature) == 0;
-    }
-
-    /**
-     * @param array $data
-     *
-     * @return \Illuminate\Http\Response|null
-     */
-    protected function create(array $data)
-    {
-        return FinanceTransaction::create($data);
-    }
-
-    protected function validator(&$data, array $rules = [])
-    {
-        return Validator::make($data, [
-            'id' => ['required', 'string', "min:8"],
-            'amount' => ['required', 'numeric'],
-            'description' => ['required', 'string', 'max:255'],
-            'state' => ['required', Rule::in(FinanceTransaction::getStates())],
-            'start_log' => ['required'],
-            'start_signature' => ['required'],
-            'finance_provider_id' => ['required', "exists:finance_providers,id"],
+        if (empty($transaction->wallet->owner->finance_account)) {
+            $balance = $transaction->wallet->owner->balance;
+        } else {
+            $balance = $transaction->wallet->owner->finance_account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
+        }
+        Log::info("New Balance " . $balance);
+        $transaction->wallet->owner->finance_account->update([
+            FinanceAccount::CREDIBILITY => $balance
         ]);
     }
 
+    public function getModel(): Model
+    {
+        return new FinanceTransaction;
+    }
+
+    public function addRule(): array
+    {
+        return [
+            'amount' => ['required', 'numeric'],
+            'description' => ['required', 'string', 'max:255'],
+            'start_log' => ['required'],
+            'finance_provider_id' => ['required', "exists:finance_providers,id"],
+        ];
+    }
+
+    public function updateRule(mixed $modelId): array
+    {
+        return [];
+    }
 }

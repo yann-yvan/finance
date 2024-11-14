@@ -4,22 +4,24 @@
 namespace NYCorp\Finance\Http\Payment;
 
 
-use NYCorp\Finance\Http\Core\Finance;
+use Illuminate\Support\Facades\Log;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\FinanceWallet;
 use NYCorp\Finance\Scope\InvalidWalletScope;
+use Nycorp\LiteApi\Exceptions\LiteResponseException;
+use Nycorp\LiteApi\Models\ResponseCode;
 
 class PaymentProviderGateway
 {
-
-    protected $successful = false;
-    protected $message = "Oops something when wrong";
-    protected $response;
-    protected $transaction;
-    protected $isWithdrawalRealTime = false;
-    private $financeProvider;
+    protected bool $successful = false;
+    protected string $message = "Oops something when wrong";
+    protected FinanceProviderGatewayResponse $response;
+    protected FinanceTransaction $transaction;
+    protected bool $isWithdrawalRealTime = false;
+    private FinanceProvider $financeProvider;
 
     public function __construct()
     {
@@ -28,32 +30,37 @@ class PaymentProviderGateway
 
     public static function load($id = null): PaymentProviderGateway
     {
-        $requestedProvider = new PaymentProviderGateway();
-        $requestedProvider->financeProvider = new FinanceProvider();
-        $providers = config(Finance::FINANCE_CONFIG_NAME . ".payment_providers");
-        foreach ($providers as $clazz) {
+        $requestedGatewayProvider = null;
+        foreach (ConfigReader::getPaymentProviders() as $clazz) {
             try {
-                $provider = new $clazz();
-                if ($provider instanceof PaymentProviderGateway) {
+                $gatewayProvider = new $clazz();
+                if ($gatewayProvider instanceof self) {
                     $registeredProvider = FinanceProvider::firstOrCreate(
-                        ["assigned_id" => $provider->getId()],
+                        [FinanceProvider::ASSIGNED_ID => $gatewayProvider->getId()],
                         [
-                            "name" => $provider->getName(),
-                            "is_available" => $provider->isAvailable(),
-                            "is_withdrawal_available" => $provider->isWithdrawalAvailable(),
-                            "is_deposit_available" => $provider->isDepositAvailable(),
-                        ]);
+                            FinanceProvider::NAME => $gatewayProvider->getName(),
+                            FinanceProvider::IS_AVAILABLE => $gatewayProvider->isAvailable(),
+                            FinanceProvider::IS_WITHDRAWAL_AVAILABLE => $gatewayProvider->isWithdrawalAvailable(),
+                            FinanceProvider::IS_DEPOSIT_AVAILABLE => $gatewayProvider->isDepositAvailable(),
+                            FinanceProvider::IS_PUBLIC => $gatewayProvider->isPublic(),
+                        ]
+                    );
 
-                    if ($id == $provider->getId()) {
-                        $requestedProvider = $provider;
-                        $requestedProvider->financeProvider = $registeredProvider;
+                    if ($id === $registeredProvider->{FinanceProvider::ASSIGNED_ID} || $id === $registeredProvider->id) {
+                        $requestedGatewayProvider = $gatewayProvider;
+                        $requestedGatewayProvider->financeProvider = $registeredProvider;
                     }
                 }
-            } catch (\Exception $exception) {
-                //TODO found a way to log this
+            } catch (\Exception|\Throwable $exception) {
+                Log::error('Loading Payment Provider Gateway with ' . $exception->getMessage(), $exception->getTrace() ?? []);
             }
         }
-        return $requestedProvider;
+
+        if ($requestedGatewayProvider === null) {
+            throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, message: 'Gateway Not Found');
+        }
+
+        return $requestedGatewayProvider;
     }
 
     protected function isAvailable(): bool
@@ -71,20 +78,9 @@ class PaymentProviderGateway
         return true;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getTransaction()
+    public function isPublic(): bool
     {
-        return $this->transaction;
-    }
-
-    /**
-     * @param FinanceTransaction $transaction
-     */
-    protected function setTransaction(FinanceTransaction $transaction): void
-    {
-        $this->transaction = $transaction;
+        return true;
     }
 
     /**
@@ -101,6 +97,22 @@ class PaymentProviderGateway
     protected function setMessage(string $message): void
     {
         $this->message = $message;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getTransaction(): FinanceTransaction
+    {
+        return $this->transaction;
+    }
+
+    /**
+     * @param FinanceTransaction $transaction
+     */
+    protected function setTransaction(FinanceTransaction $transaction): void
+    {
+        $this->transaction = $transaction;
     }
 
     /**
@@ -130,7 +142,7 @@ class PaymentProviderGateway
     /**
      * @param mixed $response
      */
-    protected function setResponse($response): void
+    protected function setResponse(FinanceProviderGatewayResponse $response): void
     {
         $this->response = $response;
     }
@@ -138,7 +150,7 @@ class PaymentProviderGateway
     /**
      * @return mixed
      */
-    public function getFinanceProvider()
+    public function getFinanceProvider(): FinanceProvider
     {
         return $this->financeProvider;
     }
@@ -161,9 +173,10 @@ class PaymentProviderGateway
 
     protected function getWallet(FinanceTransaction $transaction)
     {
-        $wallet = FinanceWallet::withoutGlobalScope(InvalidWalletScope::class)->where("finance_transaction_id",$transaction->id)->first();
-        if (empty($wallet))
+        $wallet = FinanceWallet::withoutGlobalScope(InvalidWalletScope::class)->where(FinanceWallet::FINANCE_TRANSACTION_ID, $transaction->id)->first();
+        if (empty($wallet)) {
             $wallet = new FinanceWallet();
+        }
         return $wallet;
     }
 }

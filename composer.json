@@ -26,7 +26,8 @@
     }
   },
   "require-dev": {
-    "orchestra/testbench": "^6.0",
-    "dohone/payment": "dev-master"
+    "orchestra/testbench": "^9.0",
+    "dohone/payment": "dev-master",
+    "nycorp/lite-api": "^1.1"
   }
 }

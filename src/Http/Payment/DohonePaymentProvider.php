@@ -19,11 +19,11 @@ class DohonePaymentProvider extends PaymentProviderGateway
     use PaymentProviderTrait;
     use FinanceProviderTrait;
 
-    protected $isWithdrawalRealTime = true;
+    protected bool $isWithdrawalRealTime = true;
 
-    public function getId(): string
+    public static function getId(): string
     {
-        return "3";
+        return "DHN";
     }
 
     public function getName(): string
@@ -86,7 +86,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
 
         $data = $request->all();
         try {
-            $this->successful = $request->hash == md5($data["idReqDoh"] . $data["rI"] . $data["rMt"] . config("dohone.payOutHashCode"));
+            $this->successful = $request->hash === md5($data["idReqDoh"] . $data["rI"] . $data["rMt"] . config("dohone.payOutHashCode"));
             if ($this->successful()) {
                 $this->message = "Well Done";
                 $this->setExternalId($data["idReqDoh"]);
@@ -101,6 +101,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
     public function onWithdrawalSuccess(Request $request): PaymentProviderGateway
     {
         // TODO: Implement onWithdrawalSuccess() method.
+        return $this;
     }
 
     public function SMSConfirmation($code, $phone): PaymentProviderGateway

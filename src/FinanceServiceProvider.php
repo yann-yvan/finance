@@ -6,6 +6,7 @@ namespace NYCorp\Finance;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Core\Finance;
 
 class FinanceServiceProvider extends ServiceProvider
@@ -14,9 +15,7 @@ class FinanceServiceProvider extends ServiceProvider
 
     public function register()
     {
-        $this->mergeConfigFrom(__DIR__ . '/../config/config.php', Finance::FINANCE_CONFIG_NAME);
-        $this->mergeConfigFrom(__DIR__ . '/../config/code.php', Finance::FINANCE_CONFIG_NAME . '-code');
-
+        $this->mergeConfigFrom(__DIR__ . '/../config/config.php', ConfigReader::FINANCE_CONFIG);
     }
 
     public function boot()
@@ -28,11 +27,12 @@ class FinanceServiceProvider extends ServiceProvider
                 'CreateFinanceProvidersTable',
                 'CreateFinanceTransactionsTable',
                 'CreateFinanceWalletsTable',
+                'CreateFinanceAccountsTable',
             ];
 
             $migrations = [];
 
-            foreach ($migrationClasses as $class) {
+            foreach ($migrationClasses as $key=>$class) {
                 if (!class_exists($class, true)) {
                     //Extract word from first upper case letter
                     $words = preg_split('/(?=[A-Z])/', $class);
@@ -41,18 +41,15 @@ class FinanceServiceProvider extends ServiceProvider
                     unset($words[0]);
 
                     //change first upper case letter to lower case
-                    for ($i = 1; $i <= count($words); $i++) {
+                    for ($i = 1, $iMax = count($words); $i <= $iMax; $i++) {
                         $words[$i] = lcfirst($words[$i]);
                     }
 
                     //join them to match migration name convention on Laravel
-                    $migrationName = join("_", $words);
-
-                    //create delay if one second
-                    sleep(1);
+                    $migrationName = implode("_", $words);
 
                     //Add class migration in list
-                    $migrations[__DIR__ . "/../database/migrations/$migrationName.php.stub"] = database_path('migrations/' . date('Y_m_d_His', time()) . "_$migrationName.php");
+                    $migrations[__DIR__ . "/../database/migrations/$migrationName.php"] = database_path('migrations/' . "2024_11_13_10000{$key}_$migrationName.php");
                 }
             }
 
@@ -61,8 +58,7 @@ class FinanceServiceProvider extends ServiceProvider
         }
 
         $this->publishes([
-            __DIR__ . '/../config/config.php' => config_path(Finance::FINANCE_CONFIG_NAME . '.php'),
-            __DIR__ . '/../config/code.php' => config_path(Finance::FINANCE_CONFIG_NAME . '-code.php'),
+            __DIR__ . '/../config/config.php' => config_path(ConfigReader::FINANCE_CONFIG . '.php'),
         ], 'config');
 
         $this->registerRoutes();
@@ -75,7 +71,7 @@ class FinanceServiceProvider extends ServiceProvider
             $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
         });
 
-        Route::group(["prefix" => config(Finance::FINANCE_CONFIG_NAME . ".prefix")], function () {
+        Route::group(["prefix" => config(ConfigReader::FINANCE_CONFIG . ".prefix")], function () {
             $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
         });
     }
@@ -83,8 +79,8 @@ class FinanceServiceProvider extends ServiceProvider
     protected function routeConfiguration(): array
     {
         return [
-            'prefix' => "api/" . config(Finance::FINANCE_CONFIG_NAME . ".prefix"),
-            'middleware' => config(Finance::FINANCE_CONFIG_NAME . '.middleware'),
+            'prefix' => "api/" . config(ConfigReader::FINANCE_CONFIG . ".prefix"),
+            'middleware' => config(ConfigReader::FINANCE_CONFIG . '.middleware'),
         ];
 
     }

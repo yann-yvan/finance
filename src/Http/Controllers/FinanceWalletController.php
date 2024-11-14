@@ -2,70 +2,68 @@
 
 namespace NYCorp\Finance\Http\Controllers;
 
-use Carbon\Carbon;
 use Exception;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use NYCorp\Finance\FinanceServiceProvider;
-use NYCorp\Finance\Http\Core\Finance;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use NYCorp\Finance\Models\FinanceWallet;
+use Nycorp\LiteApi\Models\ResponseCode;
 
 
 class FinanceWalletController extends Controller
 {
+    private Model $accountable;
+
     /**
-     * Display a listing of the resource.
      *
-     * @param $userAccount
      * @param $transaction
-     * @return array|\Illuminate\Http\JsonResponse|\Illuminate\Http\Response|void
+     * @param Model $accountable
+     * @return JsonResponse
+     * @throws Exception
      */
-    public static function build($transaction)
+    public static function persist($transaction, Model $accountable): JsonResponse
     {
-        return (new FinanceWalletController())->deposit($transaction);
+        return (new FinanceWalletController())->store($transaction, $accountable);
     }
 
     /**
      * Show the form for creating a new resource.
      *
-     * @param array $data
-     * @return \Illuminate\Http\Response
-     */
-    protected function create(array $data)
-    {
-        return FinanceWallet::create($data);
-    }
-
-    protected function validator(&$data, array $rules = [])
-    {
-        return Validator::make($data, [
-            'id' => 'required',
-            'credit_wallet_id' => ['required'],
-            'owner_id' => ['required', 'exists:users,id'],
-            'finance_transaction_id' => ['required', 'exists:finance_transactions,id'],
-        ]);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @param $userAccount
      * @param $transaction
-     * @return array|\Illuminate\Http\JsonResponse|void
+     * @param Model $model
+     * @return JsonResponse
+     * @throws Exception
      */
-    private function deposit($transaction)
+    private function store($transaction, Model $model): JsonResponse
     {
+        $this->accountable = $model;
         try {
             $data = [
-                'id' => strtoupper(Carbon::now()->shortMonthName) . time(),
-                'credit_wallet_id' => strtoupper(Carbon::now()->shortMonthName) . time(),
-                'owner_id' => Finance::getFinanceAccount()->id,
-                'finance_transaction_id' => $transaction["id"],
+                FinanceWallet::OWNER_ID => $model->getKey(),
+                FinanceWallet::OWNER_TYPE => $model->modelType(),
+                FinanceWallet::FINANCE_TRANSACTION_ID => $transaction["id"],
             ];
             return $this->save($data);
         } catch (Exception   $exception) {
-            return $this->liteResponse(config(Finance::FINANCE_CONFIG_NAME . '-code.request.FAILURE'), $exception, $exception->getMessage());
+            return self::liteResponse(ResponseCode::REQUEST_FAILURE, $exception->getTrace(), $exception->getMessage());
         }
     }
 
+    public function getModel(): Model
+    {
+        return new FinanceWallet;
+    }
+
+    public function addRule(): array
+    {
+        return [
+            FinanceWallet::OWNER_ID => ['required', "exists:{$this->accountable->getTable()},id"],
+            FinanceWallet::OWNER_TYPE => ['required'],
+            FinanceWallet::FINANCE_TRANSACTION_ID => ['required', 'exists:finance_transactions,id'],
+        ];
+    }
+
+    public function updateRule(mixed $modelId): array
+    {
+        return [];
+    }
 }

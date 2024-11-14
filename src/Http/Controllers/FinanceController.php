@@ -4,11 +4,14 @@
 namespace NYCorp\Finance\Http\Controllers;
 
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Payment\DohonePaymentProvider;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
-use NYCorp\Finance\Http\ResponseParser\DefResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
+use Nycorp\LiteApi\Response\DefResponse;
 
 class FinanceController extends Controller
 {
@@ -120,11 +123,12 @@ class FinanceController extends Controller
      *
      * @param Request $request
      *
-     * @return array|\Illuminate\Http\JsonResponse
+     * @return array|JsonResponse
      */
-    public function deposit(Request $request)
+    public function deposit(Request $request): JsonResponse|array
     {
-        try {
+        /*try {
+            Log::debug('starting a deposit');
             $transactionResponse = new DefResponse(FinanceTransactionController::deposit($request));
             if ($transactionResponse->isSuccess()) {
                 $walletResponse = new DefResponse(FinanceWalletController::build($transactionResponse->getData()));
@@ -135,14 +139,14 @@ class FinanceController extends Controller
                 return $this->reply($result);
             }
             return $transactionResponse->getResponse();
-        } catch (\Exception | \Throwable $exception) {
+        } catch (\Exception|\Throwable $exception) {
             return $this->respondError($exception);
-        }
+        }*/
     }
 
-    public function withdrawal(Request $request)
+    public function withdrawal(Request $request): JsonResponse|array
     {
-        try {
+       /* try {
             $transactionResponse = new DefResponse(FinanceTransactionController::withdrawal($request));
             if ($transactionResponse->isSuccess()) {
                 $walletResponse = new DefResponse(FinanceWalletController::build($transactionResponse->getData()));
@@ -158,9 +162,9 @@ class FinanceController extends Controller
                 return $this->reply($gateway);
             }
             return $transactionResponse->getResponse();
-        } catch (\Exception | \Throwable $exception) {
+        } catch (\Exception|\Throwable $exception) {
             return $this->respondError($exception);
-        }
+        }*/
     }
 
     public function onDepositSuccessDohone(Request $request)
@@ -210,11 +214,25 @@ class FinanceController extends Controller
      * )
      * @param Request $request
      *
-     * @return array|JsonResponse
+     * @return JsonResponse
      */
-    public function dohoneSmsVerification(Request $request)
+    public function dohoneSmsVerification(Request $request): JsonResponse
     {
         return $this->reply((new DohonePaymentProvider())->SMSConfirmation($request->code, $request->phone));
     }
 
+    public function getModel(): Model
+    {
+        // TODO: Implement getModel() method.
+    }
+
+    public function addRule(): array
+    {
+        // TODO: Implement addRule() method.
+    }
+
+    public function updateRule(mixed $modelId): array
+    {
+        // TODO: Implement updateRule() method.
+    }
 }

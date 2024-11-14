@@ -18,10 +18,10 @@ class FinanceProviderGatewayResponse
      * @param $transaction
      * @param $wallet
      * @param $error
-     * @param $smsVerificationRequired
+     * @param bool $smsVerificationRequired
      * @param $paymentUrl
      */
-    public function __construct($transaction = null, $wallet = null, $error = null, $smsVerificationRequired = false, $paymentUrl = null)
+    public function __construct($transaction = null, $wallet = null, $error = null, bool $smsVerificationRequired = false, $paymentUrl = null)
     {
         $this->transaction = $transaction;
         $this->wallet = $wallet;

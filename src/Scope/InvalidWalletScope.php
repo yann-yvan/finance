@@ -13,17 +13,18 @@ class InvalidWalletScope implements Scope
 {
     /**
      * Apply the scope to a given Eloquent query builder.
-     * @param \Illuminate\Database\Eloquent\Builder $builder
-     * @param \Illuminate\Database\Eloquent\Model   $model
+     * @param Builder $builder
+     * @param Model $model
      * @return void
      */
-    public function apply(Builder $builder, Model $model)
+    public function apply(Builder $builder, Model $model): void
     {
         $builder->whereHas('transaction', function ($query) use ($model) {
-            $query->where('verify_at', '!=', null)
-                ->where('external_id', '!=', null)
-                ->where('end_signature', '!=', null)
-                ->where('state', FinanceTransaction::STATE_SUCCESS);
+            $query->where(FinanceTransaction::VERIFY_AT, '!=', null)
+                ->where(FinanceTransaction::EXTERNAL_ID, '!=', null)
+                ->where(FinanceTransaction::CHECKSUM, '!=', null)
+                ->where(FinanceTransaction::IS_LOCKED, true)
+                ->where(FinanceTransaction::STATE, FinanceTransaction::STATE_COMPLETED);
         });
     }
 }

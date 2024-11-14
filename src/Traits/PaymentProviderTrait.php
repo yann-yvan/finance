@@ -10,17 +10,17 @@ use NYCorp\Finance\Models\FinanceTransaction;
 
 trait PaymentProviderTrait
 {
-    public abstract function deposit(FinanceTransaction $transaction): PaymentProviderGateway;
+    abstract public function deposit(FinanceTransaction $transaction): PaymentProviderGateway;
 
-    public abstract function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway;
+    abstract public function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway;
 
     public function phoneVerification()
     {
     }
 
-    public abstract function onDepositSuccess(Request $request): PaymentProviderGateway;
+    abstract public function onDepositSuccess(Request $request): PaymentProviderGateway;
 
-    public abstract function onWithdrawalSuccess(Request $request): PaymentProviderGateway;
+    abstract public function onWithdrawalSuccess(Request $request): PaymentProviderGateway;
 
     public function onFailureOrCancellation(Request $request)
     {

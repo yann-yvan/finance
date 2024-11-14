@@ -4,7 +4,7 @@
 namespace NYCorp\Finance\Http\Payment;
 
 
-use Illuminate\Http\Client\Request;
+use Illuminate\Http\Request;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Traits\FinanceProviderTrait;
 use NYCorp\Finance\Traits\PaymentProviderTrait;
@@ -14,9 +14,9 @@ class OrangePaymentProvider extends PaymentProviderGateway
     use PaymentProviderTrait;
     use FinanceProviderTrait;
 
-    public function getId(): string
+    public static function getId(): string
     {
-        return "2";
+        return "ORANGE_CM";
     }
 
     public function getName(): string
