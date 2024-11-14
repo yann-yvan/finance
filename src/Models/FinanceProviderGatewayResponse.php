@@ -122,7 +122,7 @@ class FinanceProviderGatewayResponse
         return [
             "transaction" => $this->transaction,
             "wallet" => $this->wallet,
-            "error" => $this->error,
+            "errors" => $this->error,
             "smsVerificationRequired" => $this->smsVerificationRequired,
             "paymentUrl" => $this->paymentUrl,
         ];

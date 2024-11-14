@@ -46,24 +46,21 @@ trait FinanceAccountTrait
         return $this->calculator();
     }
 
-    public function modelType(): string
+    public function getClass(): string
     {
-        return get_class($this);
+        return __CLASS__;
     }
 
     public function calculator(): float
     {
         $balance = 0;
         $active = true;
-        $logs = true;
+        $logs = [];
 
         Log::debug("Forced balance calculation");
         $transactions = FinanceTransaction::whereHas('wallet', function ($q) {
-            $q->where('owner_id', $this->getKey())
-                ->where('owner_type', $this->modelType());
-        })
-            ->where('is_locked', true)  // Only consider locked transactions (completed/verified)
-            ->get();
+            $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
+        })->get();
 
         foreach ($transactions as $transaction) {
             // Verify the checksum for each transaction
@@ -71,24 +68,23 @@ trait FinanceAccountTrait
                 // If checksum is valid, add the transaction amount to the balance
                 $balance += $transaction->amount;
             } else {
-                $logs = 'Corrupted transaction id ' . $transaction->id;
+                $logs[] = ['reason' => 'Corrupted transaction id ', 'id' => $transaction->id];
                 // If checksum is invalid, lock the account and log the issue
-                #$this->lockAccountWithLog($transaction);
                 break;  // Stop further processing for invalid transactions
             }
         }
 
         if (!$active) {
-            Log::critical($logs, [
-              'transaction_id'=>  $transaction->id,
-              'owner_id'=>  $this->getKey(),
-              'owner_type'=>  $this->modelType(),
-            ]);
+            Log::critical("Wallet locked due to an invalid transaction checksum.", array_merge($logs, [
+                'transaction_id' => $transaction->id,
+                'owner_id' => $this->getKey(),
+                'owner_type' => __CLASS__,
+            ]));
         }
 
         FinanceAccount::updateOrCreate(
             [
-                FinanceAccount::OWNER_TYPE => $this->modelType(),
+                FinanceAccount::OWNER_TYPE => __CLASS__,
                 FinanceAccount::OWNER_ID => $this->getKey(),
             ],
             [
@@ -102,14 +98,19 @@ trait FinanceAccountTrait
         return $balance;
     }
 
+    public function canMakeTransaction(): bool
+    {
+        return empty($this->finance_account) || $this->finance_account->{FinanceAccount::IS_ACCOUNT_ACTIVE};
+    }
+
     public function canWithdraw(float $amount, bool $forceBalanceCalculation): bool
     {
-        return $this->balanceChecksum($forceBalanceCalculation) - $amount > ($this->finance_account->{FinanceAccount::THRESHOLD} ?? 0);
+        return $this->balanceChecksum($forceBalanceCalculation) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? 0);
     }
 
     public function finance_account(): HasOne
     {
-        return $this->hasOne(FinanceAccount::class, FinanceAccount::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, $this->modelType());
+        return $this->hasOne(FinanceAccount::class, FinanceAccount::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, __CLASS__);
     }
 
     public function deposit(Request $request): JsonResponse

@@ -10,23 +10,18 @@ use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
-use NYCorp\Finance\Traits\FinanceProviderTrait;
-use NYCorp\Finance\Traits\PaymentProviderTrait;
 
 class DefaultPaymentProvider extends PaymentProviderGateway
 {
     protected bool $successful = true;
     protected string $message = "Great good job";
 
-    use PaymentProviderTrait;
-    use FinanceProviderTrait;
-
     public static function getId(): string
     {
         return ConfigReader::getDefaultPaymentProviderId();
     }
 
-    public function getName(): string
+    public static function getName(): string
     {
         return ConfigReader::getDefaultPaymentProviderName();
     }
@@ -54,12 +49,12 @@ class DefaultPaymentProvider extends PaymentProviderGateway
 
     public function onDepositSuccess(Request $request): PaymentProviderGateway
     {
-        // TODO: Implement onDepositSuccess() method.
+        return $this;
     }
 
-    public function onWithdrawalSuccess(Request $request): PaymentProviderGateway
+    public  function onWithdrawalSuccess(Request $request): PaymentProviderGateway
     {
-        // TODO: Implement onWithdrawalSuccess() method.
+        return $this;
     }
 
     protected function isAvailable(): bool

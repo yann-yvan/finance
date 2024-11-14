@@ -34,6 +34,7 @@ class FinanceAccount extends Model
         self::CREDIBILITY => 'decimal:6',
         self::LAST_VERIFICATION_AT => 'datetime',
         self::IS_ACCOUNT_ACTIVE => 'boolean',
+        self::ACCOUNT_LOGS => 'json',
     ];
 
     // Check if the current balance is above the threshold

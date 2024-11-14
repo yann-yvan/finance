@@ -6,6 +6,7 @@ namespace NYCorp\Finance\Http\Payment;
 
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Core\ConfigReader;
+use NYCorp\Finance\Interfaces\IPaymentProvider;
 use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
@@ -14,7 +15,7 @@ use NYCorp\Finance\Scope\InvalidWalletScope;
 use Nycorp\LiteApi\Exceptions\LiteResponseException;
 use Nycorp\LiteApi\Models\ResponseCode;
 
-class PaymentProviderGateway
+abstract class PaymentProviderGateway implements IPaymentProvider
 {
     protected bool $successful = false;
     protected string $message = "Oops something when wrong";
@@ -36,9 +37,9 @@ class PaymentProviderGateway
                 $gatewayProvider = new $clazz();
                 if ($gatewayProvider instanceof self) {
                     $registeredProvider = FinanceProvider::firstOrCreate(
-                        [FinanceProvider::ASSIGNED_ID => $gatewayProvider->getId()],
+                        [FinanceProvider::ASSIGNED_ID => $gatewayProvider::getId()],
                         [
-                            FinanceProvider::NAME => $gatewayProvider->getName(),
+                            FinanceProvider::NAME => $gatewayProvider::getName(),
                             FinanceProvider::IS_AVAILABLE => $gatewayProvider->isAvailable(),
                             FinanceProvider::IS_WITHDRAWAL_AVAILABLE => $gatewayProvider->isWithdrawalAvailable(),
                             FinanceProvider::IS_DEPOSIT_AVAILABLE => $gatewayProvider->isDepositAvailable(),
@@ -166,12 +167,12 @@ class PaymentProviderGateway
     /**
      * @param mixed $externalId
      */
-    protected function setExternalId($externalId): void
+    protected function setExternalId(string $externalId): void
     {
         $this->transaction->external_id = $externalId;
     }
 
-    protected function getWallet(FinanceTransaction $transaction)
+    protected function getWallet(FinanceTransaction $transaction): FinanceWallet
     {
         $wallet = FinanceWallet::withoutGlobalScope(InvalidWalletScope::class)->where(FinanceWallet::FINANCE_TRANSACTION_ID, $transaction->id)->first();
         if (empty($wallet)) {

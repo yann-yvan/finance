@@ -8,17 +8,11 @@ use Dohone\PayIn\DohonePayIn;
 use Dohone\PayOut\DohonePayOut;
 use Exception;
 use Illuminate\Http\Request;
-use NYCorp\Finance\Http\Core\Finance;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
-use NYCorp\Finance\Traits\FinanceProviderTrait;
-use NYCorp\Finance\Traits\PaymentProviderTrait;
 
 class DohonePaymentProvider extends PaymentProviderGateway
 {
-    use PaymentProviderTrait;
-    use FinanceProviderTrait;
-
     protected bool $isWithdrawalRealTime = true;
 
     public static function getId(): string
@@ -26,7 +20,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
         return "DHN";
     }
 
-    public function getName(): string
+    public static function getName(): string
     {
         return "Dohone";
     }
@@ -36,7 +30,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
         $api = DohonePayIn::payWithAPI()
             ->setAmount($transaction->amount)
             ->setClientPhone(request()->get('phone'))
-            ->setClientEmail(Finance::getFinanceAccount()->{config(Finance::FINANCE_CONFIG_NAME . ".user_email_field")})
+            #->setClientEmail(Finance::getFinanceAccount()->{config(Finance::FINANCE_CONFIG_NAME . ".user_email_field")})
             //->setClientName("$user->first_name $user->last_name")
             ->setCommandID($transaction->id)
             ->setNotifyPage(route('finance.wallet.deposit.success.dohone'))

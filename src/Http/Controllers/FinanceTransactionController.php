@@ -119,11 +119,11 @@ class FinanceTransactionController extends Controller
 
         //Launch custom action after success
         if ($transaction->state === FinanceTransaction::STATE_COMPLETED) {
-            $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
+           /* $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
             $method = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.method");
             if (!empty($clazz) && !empty($method)) {
                 (new $clazz())->{$method}($transaction->wallet, $transaction->wallet->owner);
-            }
+            }*/
         }
     }
 
@@ -138,7 +138,6 @@ class FinanceTransactionController extends Controller
 
         $transaction->end_log = self::getHttpLog(\request());
         $transaction->verify_at = Carbon::now();
-
         $transaction->save();
 
         if (empty($transaction->wallet->owner->finance_account)) {
@@ -146,6 +145,7 @@ class FinanceTransactionController extends Controller
         } else {
             $balance = $transaction->wallet->owner->finance_account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
         }
+
         Log::info("New Balance " . $balance);
         $transaction->wallet->owner->finance_account->update([
             FinanceAccount::CREDIBILITY => $balance

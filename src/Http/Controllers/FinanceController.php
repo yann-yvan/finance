@@ -218,7 +218,7 @@ class FinanceController extends Controller
      */
     public function dohoneSmsVerification(Request $request): JsonResponse
     {
-        return $this->reply((new DohonePaymentProvider())->SMSConfirmation($request->code, $request->phone));
+        #return $this->reply((new DohonePaymentProvider())->SMSConfirmation($request->code, $request->phone));
     }
 
     public function getModel(): Model

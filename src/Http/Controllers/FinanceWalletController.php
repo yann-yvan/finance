@@ -39,7 +39,7 @@ class FinanceWalletController extends Controller
         try {
             $data = [
                 FinanceWallet::OWNER_ID => $model->getKey(),
-                FinanceWallet::OWNER_TYPE => $model->modelType(),
+                FinanceWallet::OWNER_TYPE => $model->getClass(),
                 FinanceWallet::FINANCE_TRANSACTION_ID => $transaction["id"],
             ];
             return $this->save($data);
