@@ -33,7 +33,7 @@ trait FinanceAccountTrait
      */
     public function balanceChecksum(bool $always = false): float
     {
-        $account = FinanceAccount::where(FinanceAccount::OWNER_TYPE, $this->modelType())
+        $account = FinanceAccount::where(FinanceAccount::OWNER_TYPE, __CLASS__)
             ->where(FinanceAccount::LAST_VERIFICATION_AT, '>', now()->subHour())
             ->where(FinanceAccount::OWNER_ID, $this->getKey())->first();
 
