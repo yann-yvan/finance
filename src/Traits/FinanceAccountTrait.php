@@ -14,9 +14,11 @@ use NYCorp\Finance\Http\Controllers\FinanceWalletController;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceTransaction;
+use Nycorp\LiteApi\Exceptions\LiteResponseException;
 use Nycorp\LiteApi\Models\ResponseCode;
 use Nycorp\LiteApi\Response\DefResponse;
 use Nycorp\LiteApi\Traits\ApiResponseTrait;
+use Throwable;
 
 trait FinanceAccountTrait
 {
@@ -122,7 +124,7 @@ trait FinanceAccountTrait
     {
         try {
             if (!$this->exists) {
-                throw new Exception("This action can only be performed on an existing model.");
+                throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED,"This action can only be performed on an existing model.");
             }
 
             Log::debug("starting a $movement");
@@ -137,7 +139,7 @@ trait FinanceAccountTrait
             }
 
             return $transactionResponse->getResponse();
-        } catch (\Exception|\Throwable $exception) {
+        } catch (Exception|Throwable $exception) {
             Log::error("Transaction $movement error occur with " . $exception->getMessage(), $exception->getTrace() ?? []);
             return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
         }
