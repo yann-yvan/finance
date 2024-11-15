@@ -1,3 +1,6 @@
+[![Latest Version on Packagist][ico-version]][link-packagist]
+[![Total Downloads][ico-downloads]][link-downloads]
+
 ## Features
 
 1. make deposit
