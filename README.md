@@ -59,3 +59,9 @@ $response->getBody(); // get the body of the response
 $response->isSuccess(); // get the success state as boolean
 $response->getMessage(); // get response message
 ```
+
+[ico-version]: https://img.shields.io/packagist/v/nycorp/finance.svg?style=flat-square
+[ico-downloads]: https://img.shields.io/packagist/dt/nycorp/finance.svg?style=flat-square
+
+[link-packagist]: https://packagist.org/packages/nycorp/finance
+[link-downloads]: https://packagist.org/packages/nycorp/finance
