@@ -26,7 +26,8 @@ class FinanceAccount extends Model
         self::IS_ACCOUNT_ACTIVE,
         self::ACCOUNT_LOGS,
         self::OWNER_ID,
-        self::OWNER_TYPE
+        self::OWNER_TYPE,
+        self::THRESHOLD,
     ];
 
     // Casts for data types

@@ -48,11 +48,6 @@ trait FinanceAccountTrait
         return $this->calculator();
     }
 
-    public function getClass(): string
-    {
-        return __CLASS__;
-    }
-
     public function calculator(): float
     {
         $balance = 0;
@@ -100,6 +95,11 @@ trait FinanceAccountTrait
         return $balance;
     }
 
+    public function getClass(): string
+    {
+        return __CLASS__;
+    }
+
     public function canMakeTransaction(): bool
     {
         return empty($this->finance_account) || $this->finance_account->{FinanceAccount::IS_ACCOUNT_ACTIVE};
@@ -124,7 +124,7 @@ trait FinanceAccountTrait
     {
         try {
             if (!$this->exists) {
-                throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED,"This action can only be performed on an existing model.");
+                throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing model.");
             }
 
             Log::debug("starting a $movement");
@@ -148,5 +148,16 @@ trait FinanceAccountTrait
     public function withdrawal(Request $request): JsonResponse
     {
         return $this->makeTransaction($request, FinanceTransaction::WITHDRAWAL_MOVEMENT);
+    }
+
+    public function setThreshold(float $minBalance): void
+    {
+        if (empty($this->finance_account)) {
+            $this->balanceChecksum();
+            $this->refresh();
+        }
+        $this->finance_account->update(
+            [FinanceAccount::THRESHOLD => $minBalance]
+        );
     }
 }
