@@ -6,6 +6,7 @@ namespace NYCorp\Finance\Http\Payment;
 
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Core\ConfigReader;
+use NYCorp\Finance\Interfaces\InternalProvider;
 use NYCorp\Finance\Interfaces\IPaymentProvider;
 use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
@@ -47,9 +48,17 @@ abstract class PaymentProviderGateway implements IPaymentProvider
                         ]
                     );
 
+                    //Id can be either provider id, or assigned_id
                     if ($id === $registeredProvider->{FinanceProvider::ASSIGNED_ID} || $id === $registeredProvider->id) {
                         $requestedGatewayProvider = $gatewayProvider;
                         $requestedGatewayProvider->financeProvider = $registeredProvider;
+
+                        if($gatewayProvider instanceof InternalProvider){
+                            // Bypass restrictions for the internal provider
+                            $registeredProvider->isDepositAvailable = true;
+                            $registeredProvider->isWithdrawalAvailable = true;
+                            $registeredProvider->isAvailable = true;
+                        }
                     }
                 }
             } catch (\Exception|\Throwable $exception) {

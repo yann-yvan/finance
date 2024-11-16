@@ -65,7 +65,7 @@ class FinanceTransactionController extends Controller
             }
 
             if (($financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT && !$provider->isDepositAvailable()) || ($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT && !$provider->isWithdrawalAvailable())) {
-                throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, "Provider Service unavailable");
+                throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, "Provider $financeMovement Service Unavailable");
             }
 
             $amount = $financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT ? abs($rawAmount) : -abs($rawAmount);

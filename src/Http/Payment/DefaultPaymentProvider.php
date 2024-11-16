@@ -8,10 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Http\Core\ConfigReader;
+use NYCorp\Finance\Interfaces\InternalProvider;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
 
-class DefaultPaymentProvider extends PaymentProviderGateway
+class DefaultPaymentProvider extends PaymentProviderGateway implements InternalProvider
 {
     protected bool $successful = true;
     protected string $message = "Great good job";
@@ -52,9 +53,14 @@ class DefaultPaymentProvider extends PaymentProviderGateway
         return $this;
     }
 
-    public  function onWithdrawalSuccess(Request $request): PaymentProviderGateway
+    public function onWithdrawalSuccess(Request $request): PaymentProviderGateway
     {
         return $this;
+    }
+
+    protected function isDepositAvailable(): bool
+    {
+        return false;
     }
 
     protected function isAvailable(): bool

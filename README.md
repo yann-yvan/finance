@@ -9,14 +9,21 @@
 
 #### Installation (with Composer)
 
-```composer
+```shell
 composer require nycorp/finance
 ```
 
 #### Configuration
 
+Publish migration file and config
+
 ```shell
 php artisan vendor:publish --provider="NYCorp\Finance\FinanceServiceProvider"
+```
+Run migration
+
+```shell
+php artisan migrate
 ```
 
 ## Usage
@@ -27,7 +34,7 @@ php artisan vendor:publish --provider="NYCorp\Finance\FinanceServiceProvider"
 use FinanceAccountTrait;
 ```
 
-Set Threshold the min balance for an account
+(Optional) Set Threshold the min balance for an account
 
 ```php
 return User::first()->setThreshold(100) 

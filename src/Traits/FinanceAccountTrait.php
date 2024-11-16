@@ -102,7 +102,11 @@ trait FinanceAccountTrait
 
     public function canMakeTransaction(): bool
     {
-        return empty($this->finance_account) || $this->finance_account->{FinanceAccount::IS_ACCOUNT_ACTIVE};
+        if (empty($this->finance_account)) {
+            $this->balanceChecksum();
+            $this->refresh();
+        }
+        return $this->finance_account->{FinanceAccount::IS_ACCOUNT_ACTIVE};
     }
 
     public function canWithdraw(float $amount, bool $forceBalanceCalculation): bool
