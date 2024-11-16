@@ -119,13 +119,14 @@ trait FinanceAccountTrait
         return $this->hasOne(FinanceAccount::class, FinanceAccount::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, __CLASS__);
     }
 
-    public function deposit(Request $request): JsonResponse
+    public function deposit(string $providerId, float $amount, string $description): JsonResponse
     {
-        return $this->makeTransaction($request, FinanceTransaction::DEPOSIT_MOVEMENT);
+        return $this->makeTransaction($providerId, $amount, $description, FinanceTransaction::DEPOSIT_MOVEMENT);
     }
 
-    protected function makeTransaction(Request $request, string $movement): JsonResponse
+    protected function makeTransaction(string $providerId, float $amount, string $description, string $movement): JsonResponse
     {
+        $request = new Request(['provider_id' => $providerId, 'amount' => $amount, 'description' => $description]);
         try {
             if (!$this->exists) {
                 throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing model.");
@@ -149,9 +150,9 @@ trait FinanceAccountTrait
         }
     }
 
-    public function withdrawal(Request $request): JsonResponse
+    public function withdrawal(string $providerId, float $amount, string $description): JsonResponse
     {
-        return $this->makeTransaction($request, FinanceTransaction::WITHDRAWAL_MOVEMENT);
+        return $this->makeTransaction($providerId, $amount, $description, FinanceTransaction::WITHDRAWAL_MOVEMENT);
     }
 
     public function setThreshold(float $minBalance): void

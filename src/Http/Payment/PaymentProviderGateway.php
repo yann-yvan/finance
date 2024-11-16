@@ -51,14 +51,15 @@ abstract class PaymentProviderGateway implements IPaymentProvider
                     //Id can be either provider id, or assigned_id
                     if ($id === $registeredProvider->{FinanceProvider::ASSIGNED_ID} || $id === $registeredProvider->id) {
                         $requestedGatewayProvider = $gatewayProvider;
-                        $requestedGatewayProvider->financeProvider = $registeredProvider;
 
                         if($gatewayProvider instanceof InternalProvider){
                             // Bypass restrictions for the internal provider
-                            $registeredProvider->isDepositAvailable = true;
-                            $registeredProvider->isWithdrawalAvailable = true;
-                            $registeredProvider->isAvailable = true;
+                            $registeredProvider->is_deposit_available = true;
+                            $registeredProvider->is_withdrawal_available = true;
+                            $registeredProvider->is_available = true;
                         }
+
+                        $requestedGatewayProvider->financeProvider = $registeredProvider;
                     }
                 }
             } catch (\Exception|\Throwable $exception) {
