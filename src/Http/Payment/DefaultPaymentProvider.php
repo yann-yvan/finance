@@ -34,16 +34,18 @@ class DefaultPaymentProvider extends PaymentProviderGateway implements InternalP
 
     public function deposit(FinanceTransaction $transaction): PaymentProviderGateway
     {
-        $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, [], false, null);
-        $transaction->{FinanceTransaction::EXTERNAL_ID} = Str::uuid();
+        $walletId = $this->getWallet($transaction)->id;
+        $this->response = new FinanceProviderGatewayResponse($transaction, $walletId, [], false, null);
+        $transaction->{FinanceTransaction::EXTERNAL_ID} = $walletId;
         FinanceTransactionController::close($transaction);
         return $this;
     }
 
     public function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway
     {
-        $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, [], false, null);
-        $transaction->{FinanceTransaction::EXTERNAL_ID} = Str::uuid();
+        $walletId = $this->getWallet($transaction)->id;
+        $this->response = new FinanceProviderGatewayResponse($transaction, $walletId, [], false, null);
+        $transaction->{FinanceTransaction::EXTERNAL_ID} = $walletId;
         FinanceTransactionController::close($transaction);
         return $this;
     }

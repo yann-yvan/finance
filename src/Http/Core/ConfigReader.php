@@ -25,4 +25,14 @@ class ConfigReader
     {
         return config(self::FINANCE_CONFIG . ".force_balance_check_min_amount");
     }
+
+    public static function getDefaultThreshold()
+    {
+        return config(self::FINANCE_CONFIG . ".default_threshold");
+    }
+
+    public static function getRefreshTtl()
+    {
+        return config(self::FINANCE_CONFIG . ".refresh_account_ttl");
+    }
 }

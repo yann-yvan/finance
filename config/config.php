@@ -2,6 +2,8 @@
 return [
     'default_payment_provider_id' => 'LOCAL_PROVIDER',
     'default_payment_provider_name' => env('APP_NAME')."'s Local Provider",
+    'default_threshold' => 0,
+    'refresh_account_ttl' => 60, #in minute
 
 
     'prefix' => 'finance',

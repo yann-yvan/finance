@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Http\Controllers\FinanceWalletController;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceTransaction;
@@ -36,7 +37,7 @@ trait FinanceAccountTrait
     public function balanceChecksum(bool $always = false): float
     {
         $account = FinanceAccount::where(FinanceAccount::OWNER_TYPE, __CLASS__)
-            ->where(FinanceAccount::LAST_VERIFICATION_AT, '>', now()->subHour())
+            ->where(FinanceAccount::LAST_VERIFICATION_AT, '>', now()->subHours(ConfigReader::getRefreshTtl()))
             ->where(FinanceAccount::OWNER_ID, $this->getKey())->first();
 
         //Check if is force or record has expired
@@ -111,7 +112,7 @@ trait FinanceAccountTrait
 
     public function canWithdraw(float $amount, bool $forceBalanceCalculation): bool
     {
-        return $this->balanceChecksum($forceBalanceCalculation) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? 0);
+        return $this->balanceChecksum($forceBalanceCalculation) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? ConfigReader::getDefaultThreshold());
     }
 
     public function finance_account(): HasOne
