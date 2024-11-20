@@ -46,6 +46,12 @@ For deposit
 return User::first()->deposit($request)
 ```
 
+Get balance
+
+```php
+return User::first()->balance
+```
+
 For withdrawal
 
 ```php
@@ -56,6 +62,12 @@ Check if user can make transaction if his finance account is not disabled
 
 ```php
 return Company::first()->canMakeTransaction() ? Company::first()->withdrawal($request) : 'Error';
+```
+
+Check if user can make transaction if his finance account has enough balance base on threshold use true to force balance calculation
+
+```php
+return Company::first()->canWithdraw(100,true) ? Company::first()->withdrawal($request) : 'Insufficient balance';
 ```
 
 Response handle

@@ -9,7 +9,6 @@ return [
     'prefix' => 'finance',
     'middleware' => ['api'],
 
-    'app_account_id' => 1,
 
     'user_email_field' => "email",
 
