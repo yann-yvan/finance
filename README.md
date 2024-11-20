@@ -61,7 +61,7 @@ return User::first()->withdrawal($request)
 Check if user can make transaction if his finance account is not disabled
 
 ```php
-return Company::first()->canMakeTransaction() ? Company::first()->withdrawal($request) : 'Error';
+return Company::first()->canMakeTransaction() ? Company::first()->withdrawal($request) : 'Your account is disabled';
 ```
 
 Check if user can make transaction if his finance account has enough balance base on threshold use true to force balance calculation

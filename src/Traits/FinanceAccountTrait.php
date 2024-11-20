@@ -156,7 +156,7 @@ trait FinanceAccountTrait
         return $this->makeTransaction($providerId, $amount, $description, FinanceTransaction::WITHDRAWAL_MOVEMENT);
     }
 
-    public function setThreshold(float $minBalance): void
+    public function setThreshold(float $minBalance): FinanceAccount
     {
         if (empty($this->finance_account)) {
             $this->balanceChecksum();
@@ -165,5 +165,7 @@ trait FinanceAccountTrait
         $this->finance_account->update(
             [FinanceAccount::THRESHOLD => $minBalance]
         );
+
+        return $this->finance_account;
     }
 }
