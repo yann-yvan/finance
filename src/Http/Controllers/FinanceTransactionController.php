@@ -57,6 +57,7 @@ class FinanceTransactionController extends Controller
     private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT): JsonResponse
     {
         $rawAmount = $request->get("amount");
+        $currency = $request->get("currency",ConfigReader::getDefaultCurrency());
         $description = $request->get("description");
 
         try {
@@ -77,6 +78,7 @@ class FinanceTransactionController extends Controller
 
             $data = [
                 FinanceTransaction::AMOUNT => $amount,
+                FinanceTransaction::CURRENCY => $currency,
                 FinanceTransaction::DESCRIPTION => $description,
                 FinanceTransaction::START_LOG => self::getHttpLog($request),
                 FinanceTransaction::FINANCE_PROVIDER_ID => $provider->id,

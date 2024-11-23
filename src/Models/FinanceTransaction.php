@@ -27,6 +27,7 @@ class FinanceTransaction extends Model
 
     public const ID = 'id';
     public const AMOUNT = 'amount';
+    public const CURRENCY = 'currency';
     public const VERIFY_AT = 'verify_at';
     public const START_LOG = 'start_log';
     public const END_LOG = 'end_log';
@@ -60,6 +61,7 @@ class FinanceTransaction extends Model
         self::AMOUNT,
         self::START_LOG,
         self::START_SIGNATURE,
+        self::CURRENCY,
         self::DESCRIPTION,
         self::STATE,
         self::FINANCE_PROVIDER_ID,
@@ -138,6 +140,7 @@ class FinanceTransaction extends Model
             self::AMOUNT,
             self::START_LOG,
             self::STATE,
+            self::CURRENCY,
             self::DESCRIPTION,
             self::FINANCE_PROVIDER_ID,
         ];

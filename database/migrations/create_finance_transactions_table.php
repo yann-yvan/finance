@@ -18,6 +18,7 @@ return new class extends Migration {
         Schema::create('finance_transactions', function (Blueprint $table) {
             $table->string('id')->primary(); // Primary key for the transaction
             $table->decimal('amount', 13, 5)->index(); // Amount of the transaction with high precision
+            $table->string('currency')->index(); // Amount of the transaction with high precision
             $table->timestamp('verify_at')->nullable()->index(); // Timestamp for when the transaction was verified
             $table->longText('start_log'); // Log details of when the transaction started
             $table->longText('end_log')->nullable(); // Log details of when the transaction ended (nullable)

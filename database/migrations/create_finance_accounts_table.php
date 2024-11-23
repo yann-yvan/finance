@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->id();
             $table->decimal('credibility',13,5)->index();
             $table->decimal('threshold', 13, 5)->nullable();
+            $table->string('currency')->index();
             $table->dateTime('last_verification_at')->index();
             $table->boolean('is_account_active')->default(true)->index();
             $table->longText('account_logs');

@@ -18,6 +18,8 @@ class FinanceAccount extends Model
     public const OWNER_ID = 'owner_id';
     public const OWNER_TYPE = 'owner_type';
     public const THRESHOLD = 'threshold';
+    public const CURRENCY = 'currency';
+
 
     // Attributes that are mass assignable
     protected $fillable = [
@@ -28,6 +30,7 @@ class FinanceAccount extends Model
         self::OWNER_ID,
         self::OWNER_TYPE,
         self::THRESHOLD,
+        self::CURRENCY,
     ];
 
     // Casts for data types

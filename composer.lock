@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "60cad7e06bb8a2458c70d517f78b94f8",
+    "content-hash": "7b77fa80fce11c5496b77cd778f95b5a",
     "packages": [],
     "packages-dev": [
         {
@@ -3935,16 +3935,16 @@
         },
         {
             "name": "nycorp/lite-api",
-            "version": "1.1.3.1",
+            "version": "1.1.33",
             "source": {
                 "type": "git",
                 "url": "https://github.com/yann-yvan/lite-api.git",
-                "reference": "32d691b5307f3dc3a144886a0bdc34fea24fea1c"
+                "reference": "c2f0bc17b1bbbe1ecf054b84daff2f88d7c829d1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/yann-yvan/lite-api/zipball/32d691b5307f3dc3a144886a0bdc34fea24fea1c",
-                "reference": "32d691b5307f3dc3a144886a0bdc34fea24fea1c",
+                "url": "https://api.github.com/repos/yann-yvan/lite-api/zipball/c2f0bc17b1bbbe1ecf054b84daff2f88d7c829d1",
+                "reference": "c2f0bc17b1bbbe1ecf054b84daff2f88d7c829d1",
                 "shasum": ""
             },
             "require": {
@@ -3990,9 +3990,9 @@
             "description": "The skeleton application for the Laravel framework.",
             "support": {
                 "issues": "https://github.com/yann-yvan/lite-api/issues",
-                "source": "https://github.com/yann-yvan/lite-api/tree/1.1.3.1"
+                "source": "https://github.com/yann-yvan/lite-api/tree/1.1.33"
             },
-            "time": "2024-10-05T21:35:54+00:00"
+            "time": "2024-11-23T10:08:46+00:00"
         },
         {
             "name": "orchestra/canvas",

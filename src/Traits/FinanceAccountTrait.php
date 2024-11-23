@@ -8,6 +8,8 @@ use Exception;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Http\Controllers\FinanceWalletController;
@@ -49,41 +51,56 @@ trait FinanceAccountTrait
         return $this->calculator();
     }
 
-    public function calculator(): float
+    public function calculator(bool $verifyChecksum = false): float
     {
         $balance = 0;
         $active = true;
         $logs = [];
 
-        Log::debug("Forced balance calculation");
-        $transactions = FinanceTransaction::whereHas('wallet', function ($q) {
-            $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
-        })->get();
 
-        foreach ($transactions as $transaction) {
-            // Verify the checksum for each transaction
-            if ($active = $transaction->verifyChecksum()) {
-                // If checksum is valid, add the transaction amount to the balance
-                $balance += $transaction->amount;
-            } else {
-                $logs[] = ['reason' => 'Corrupted transaction id ', 'id' => $transaction->id];
-                // If checksum is invalid, lock the account and log the issue
-                break;  // Stop further processing for invalid transactions
+        if ($verifyChecksum) {
+            Log::debug(__CLASS__ . " balance verification and calculation for " . $this->getKey());
+
+            $transactions = FinanceTransaction::whereHas('wallet', function ($q) {
+                $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
+            })->get();
+
+            foreach ($transactions as $transaction) {
+                // Verify the checksum for each transaction
+                if ($active = $transaction->verifyChecksum()) {
+                    // If checksum is valid, add the transaction amount to the balance
+                    $balance += $transaction->amount;
+                } else {
+                    $logs[] = ['reason' => 'Corrupted transaction id ', 'id' => $transaction->id];
+                    // If checksum is invalid, lock the account and log the issue
+                    #break;  // Stop further processing for invalid transactions
+                }
             }
-        }
 
-        if (!$active) {
-            Log::critical("Wallet locked due to an invalid transaction checksum.", array_merge($logs, [
-                'transaction_id' => $transaction->id,
-                'owner_id' => $this->getKey(),
-                'owner_type' => __CLASS__,
-            ]));
+            if (!$active) {
+                Log::critical("Wallet locked due to an invalid transaction checksum.", array_merge($logs, [
+                    'transaction_id' => $transaction->id,
+                    'owner_id' => $this->getKey(),
+                    'owner_type' => __CLASS__,
+                ]));
+            }
+        } else {
+            Log::debug(__CLASS__ . " balance calculation for " . $this->getKey());
+
+            $balances = FinanceTransaction::whereHas('wallet', function ($q) {
+                $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
+            })->select(FinanceTransaction::CURRENCY, DB::raw('SUM(amount) as total_balance'))
+                ->groupBy(FinanceTransaction::CURRENCY)->pluck('total_balance', FinanceTransaction::CURRENCY)
+                ->toArray();
+
+            $balance = Arr::get($balances, $this->getCurrency(),0);
         }
 
         FinanceAccount::updateOrCreate(
             [
                 FinanceAccount::OWNER_TYPE => __CLASS__,
                 FinanceAccount::OWNER_ID => $this->getKey(),
+                FinanceAccount::CURRENCY => $this->getCurrency(),
             ],
             [
                 FinanceAccount::IS_ACCOUNT_ACTIVE => $active,
@@ -94,6 +111,16 @@ trait FinanceAccountTrait
         );
 
         return $balance;
+    }
+
+    public function getCurrency()
+    {
+        return ConfigReader::getDefaultCurrency();
+    }
+
+    public function getBalancesAttribute(): float
+    {
+        return $this->balanceChecksum();
     }
 
     public function getClass(): string
@@ -127,7 +154,7 @@ trait FinanceAccountTrait
 
     protected function makeTransaction(string $providerId, float $amount, string $description, string $movement): JsonResponse
     {
-        $request = new Request(['provider_id' => $providerId, 'amount' => $amount, 'description' => $description]);
+        $request = new Request(['provider_id' => $providerId, FinanceTransaction::AMOUNT => $amount, FinanceTransaction::CURRENCY => $this->getCurrency(), FinanceTransaction::DESCRIPTION => $description,]);
         try {
             if (!$this->exists) {
                 throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing model.");
