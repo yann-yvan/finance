@@ -44,7 +44,7 @@ trait FinanceAccountTrait
 
         //Check if is force or record has expired
         if ($account && !$always) {
-            Log::debug("Balance reading");
+            #Log::debug("Balance reading");
             return $account->{FinanceAccount::CREDIBILITY};
         }
 
