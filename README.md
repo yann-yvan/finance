@@ -59,12 +59,22 @@ For withdrawal
 return User::first()->withdrawal(DefaultPaymentProvider::getId(), 12, $description)
 ```
 
-Set model currency by adding this method
+Customize the canWithdraw in the model (Optional)
+
+```php
+public function canWithdraw(float $amount, bool $forceBalanceCalculation): bool
+    {
+        //EX : Set to true because the account is debited only when the service is consumed
+        return true;
+    }
+```
+
+Set model currency by adding this method in the model
 
 ```php
 public function getCurrency()
     {
-        // Implement your logic to get currency here
+        // Implement your logic to get currency here the default value is set in the finance config file
         return \NYCorp\Finance\Http\Core\ConfigReader::getDefaultCurrency();
     }
 ```

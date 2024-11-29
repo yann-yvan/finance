@@ -30,6 +30,7 @@ class ConfigReader
     {
         return config(self::FINANCE_CONFIG . ".default_threshold");
     }
+
     public static function getDefaultCurrency()
     {
         return config(self::FINANCE_CONFIG . ".default_currency");

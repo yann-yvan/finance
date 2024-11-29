@@ -93,7 +93,7 @@ trait FinanceAccountTrait
                 ->groupBy(FinanceTransaction::CURRENCY)->pluck('total_balance', FinanceTransaction::CURRENCY)
                 ->toArray();
 
-            $balance = Arr::get($balances, $this->getCurrency(),0);
+            $balance = Arr::get($balances, $this->getCurrency(), 0);
         }
 
         FinanceAccount::updateOrCreate(
@@ -154,7 +154,13 @@ trait FinanceAccountTrait
 
     protected function makeTransaction(string $providerId, float $amount, string $description, string $movement): JsonResponse
     {
+        if ($amount === 0.0) {
+            Log::warning("Useless transaction of amount $amount and $description");
+            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: "Useless transaction of amount $amount");
+        }
+
         $request = new Request(['provider_id' => $providerId, FinanceTransaction::AMOUNT => $amount, FinanceTransaction::CURRENCY => $this->getCurrency(), FinanceTransaction::DESCRIPTION => $description,]);
+
         try {
             if (!$this->exists) {
                 throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing model.");
