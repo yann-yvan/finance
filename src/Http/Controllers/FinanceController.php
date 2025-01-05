@@ -169,7 +169,7 @@ class FinanceController extends Controller
 
     public function onDepositSuccessDohone(Request $request)
     {
-        FinanceTransactionController::close((new DohonePaymentProvider())->onDepositSuccess($request)->getTransaction());
+        FinanceTransactionController::close((PaymentProviderGateway::load(DohonePaymentProvider::getId()))->onDepositSuccess($request)->getTransaction());
     }
 
 
