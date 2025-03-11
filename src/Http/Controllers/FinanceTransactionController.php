@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use NYCorp\Finance\Events\FinanceTransactionSuccessEvent;
 use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Models\FinanceAccount;
@@ -57,7 +58,7 @@ class FinanceTransactionController extends Controller
     private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT): JsonResponse
     {
         $rawAmount = $request->get("amount");
-        $currency = $request->get("currency",ConfigReader::getDefaultCurrency());
+        $currency = $request->get("currency", ConfigReader::getDefaultCurrency());
         $description = $request->get("description");
 
         try {
@@ -120,11 +121,18 @@ class FinanceTransactionController extends Controller
 
         //Launch custom action after success
         if ($transaction->state === FinanceTransaction::STATE_COMPLETED) {
-           /* $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
-            $method = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.method");
-            if (!empty($clazz) && !empty($method)) {
-                (new $clazz())->{$method}($transaction->wallet, $transaction->wallet->owner);
-            }*/
+
+            try {
+                event(new FinanceTransactionSuccessEvent($transaction->wallet->owner, $transaction));
+            }catch (Exception|\Throwable $exception){
+                Log::error("Finance Lib Event " .$exception->getMessage() ,$exception->getTrace());
+            }
+
+            /* $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
+             $method = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.method");
+             if (!empty($clazz) && !empty($method)) {
+                 (new $clazz())->{$method}($transaction->wallet, $transaction->wallet->owner);
+             }*/
         }
     }
 
@@ -145,12 +153,13 @@ class FinanceTransactionController extends Controller
             $balance = $transaction->wallet->owner->balance;
         } else {
             $balance = $transaction->wallet->owner->finance_account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
+            $transaction->wallet->owner->finance_account->update([
+                FinanceAccount::CREDIBILITY => $balance
+            ]);
         }
 
         Log::info("New Balance " . $balance);
-        $transaction->wallet->owner->finance_account->update([
-            FinanceAccount::CREDIBILITY => $balance
-        ]);
+
     }
 
     public function getModel(): Model
