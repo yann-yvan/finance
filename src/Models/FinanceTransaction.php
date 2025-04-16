@@ -201,7 +201,6 @@ class FinanceTransaction extends Model
     }
 
 
-
     /**
      * Get the fields to be included in the checksum calculation for end of transaction
      *

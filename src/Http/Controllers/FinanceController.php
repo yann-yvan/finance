@@ -10,8 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Payment\DohonePaymentProvider;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
-use NYCorp\Finance\Models\FinanceTransaction;
-use Nycorp\LiteApi\Response\DefResponse;
 
 class FinanceController extends Controller
 {
@@ -146,30 +144,42 @@ class FinanceController extends Controller
 
     public function withdrawal(Request $request): JsonResponse|array
     {
-       /* try {
-            $transactionResponse = new DefResponse(FinanceTransactionController::withdrawal($request));
-            if ($transactionResponse->isSuccess()) {
-                $walletResponse = new DefResponse(FinanceWalletController::build($transactionResponse->getData()));
-                if (!$walletResponse->isSuccess()) {
-                    return $walletResponse->getResponse();
-                }
-                $gateway = PaymentProviderGateway::load($transactionResponse->getData()["finance_provider_id"])->withdrawal(FinanceTransaction::find($transactionResponse->getData()["id"]));
+        /* try {
+             $transactionResponse = new DefResponse(FinanceTransactionController::withdrawal($request));
+             if ($transactionResponse->isSuccess()) {
+                 $walletResponse = new DefResponse(FinanceWalletController::build($transactionResponse->getData()));
+                 if (!$walletResponse->isSuccess()) {
+                     return $walletResponse->getResponse();
+                 }
+                 $gateway = PaymentProviderGateway::load($transactionResponse->getData()["finance_provider_id"])->withdrawal(FinanceTransaction::find($transactionResponse->getData()["id"]));
 
-                if ($gateway->successful() and $gateway->isWithdrawalRealTime()) {
-                    FinanceTransactionController::close($gateway->getTransaction());
-                }
+                 if ($gateway->successful() and $gateway->isWithdrawalRealTime()) {
+                     FinanceTransactionController::close($gateway->getTransaction());
+                 }
 
-                return $this->reply($gateway);
-            }
-            return $transactionResponse->getResponse();
-        } catch (\Exception|\Throwable $exception) {
-            return $this->respondError($exception);
-        }*/
+                 return $this->reply($gateway);
+             }
+             return $transactionResponse->getResponse();
+         } catch (\Exception|\Throwable $exception) {
+             return $this->respondError($exception);
+         }*/
     }
 
     public function onDepositSuccessDohone(Request $request)
     {
         FinanceTransactionController::close((PaymentProviderGateway::load(DohonePaymentProvider::getId()))->onDepositSuccess($request)->getTransaction());
+    }
+
+    public function depositNotification(string $provider, Request $request): void
+    {
+        Log::info("Deposit Notification Received", $request->all());
+        FinanceTransactionController::close((PaymentProviderGateway::load($provider))->onDepositSuccess($request)->getTransaction());
+    }
+
+    public function withdrawalNotification(string $provider, Request $request): void
+    {
+        Log::info("Withdrawal Notification Received", $request->all());
+        FinanceTransactionController::close((PaymentProviderGateway::load($provider))->onWithdrawalSuccess($request)->getTransaction());
     }
 
 
