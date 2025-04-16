@@ -52,7 +52,7 @@ abstract class PaymentProviderGateway implements IPaymentProvider
                     if ($id === $registeredProvider->{FinanceProvider::ASSIGNED_ID} || $id === $registeredProvider->id) {
                         $requestedGatewayProvider = $gatewayProvider;
 
-                        if($gatewayProvider instanceof InternalProvider){
+                        if ($gatewayProvider instanceof InternalProvider) {
                             // Bypass restrictions for the internal provider
                             $registeredProvider->is_deposit_available = true;
                             $registeredProvider->is_withdrawal_available = true;
@@ -108,6 +108,16 @@ abstract class PaymentProviderGateway implements IPaymentProvider
     protected function setMessage(string $message): void
     {
         $this->message = $message;
+    }
+
+    public static function depositNotificationUrl(string $providerId): string
+    {
+        return route('finance.wallet.deposit.notification', $providerId);
+    }
+
+    public static function withdrawalNotificationUrl(string $providerId): string
+    {
+        return route('finance.wallet.withdrawal.notification', $providerId);
     }
 
     /**
