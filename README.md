@@ -6,6 +6,8 @@
 1. make deposit
 2. make withdrawal
 3. Set account threshold
+4. Listen to success transaction
+5. Custom payment provider
 
 #### Installation (with Composer)
 
@@ -96,7 +98,27 @@ calculation
 return Company::first()->canWithdraw(100,true) ? Company::first()->withdrawal(DefaultPaymentProvider::getId(), 12, $description) : 'Insufficient balance';
 ```
 
-Custom Provider
+## To listen to success transaction
+
+```shell
+php artisan make:listener SuccessFinanceTransactionListener --event=FinanceTransactionSuccessEvent
+```
+```php
+ /**
+     * Handle the event.
+     */
+    public function handle(FinanceTransactionSuccessEvent $event): void
+    {
+        # In case you handle multiple model
+        match (get_class($event->model)) {
+            Model1::class => $this->handleModel1($event),
+            Model1::class => $this->hanleModel2($event),
+            default => static fn() => Log::warning("FinanceTransactionSuccessEvent Model not handle")
+        };
+    }
+```
+
+## Custom Provider
 
 ```php
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
@@ -180,7 +202,7 @@ class CustomPaymentProvider extends PaymentProviderGateway
 
 ```
 
-Response handle
+## Response handle
 
 ```php
 $response = \Nycorp\LiteApi\Response\DefResponse::parse(User::first()->withdrawal(DefaultPaymentProvider::getId(), 12, $description));
