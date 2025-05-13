@@ -92,6 +92,90 @@ calculation
 return Company::first()->canWithdraw(100,true) ? Company::first()->withdrawal(DefaultPaymentProvider::getId(), 12, $description) : 'Insufficient balance';
 ```
 
+Custom Provider
+
+```php
+use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
+
+class CustomPaymentProvider extends PaymentProviderGateway
+{
+
+    public static function getName(): string
+    {
+        return 'CustomProvider';
+    }
+
+    public function deposit(FinanceTransaction $transaction): PaymentProviderGateway
+    {
+        #Your custom logic here
+        
+        //use this url for callback
+        $callbackUrl = self::depositNotificationUrl(self::getId());
+
+        $response = Http::post('https://api-checkout/v2/payment', $formData);
+        $this->successful = $response->successful();
+        $this->message = $response->json('description');
+        $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, $response->body(), false, $response->json('data.payment_url'));
+        return $this;
+    }
+
+    private function normalizeAmount($amount, string $id): int
+    {
+        return ceil($amount * Cache::get($id, 655));
+    }
+
+    public static function getId(): string
+    {
+        return 'MY_PROVIDER_ID';
+    }
+
+    public function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway
+    {
+        #Your custom logic here
+        
+        //use this url for callback
+        $callbackUrl = self::depositNotificationUrl(self::getId());
+
+        $response = Http::post('https://api-checkout/v2/payment', $formData);
+        $this->successful = $response->successful();
+        $this->message = $response->json('description');
+        $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, $response->body(), false, $response->json('data.payment_url'));
+        return $this;
+    }
+
+    public function onDepositSuccess(Request $request): PaymentProviderGateway
+    {
+        Log::debug("**Payment** | " . self::getId() . ": callback " . $request->cpm_trans_id, $request->all());
+
+        if ($this->findTransaction($request, 'cpm_trans_id') === null) {
+            return $this;
+        }
+
+        return $this;
+    }
+
+    public function onWithdrawalSuccess(Request $request): PaymentProviderGateway
+    {
+        return $this;
+    }
+
+    protected function findTransaction(Request $request, string $key): ?FinanceTransaction
+    {
+        $transactionId = Arr::get($request->all(), $key);
+        $this->transaction = FinanceTransaction::find($transactionId);
+        if (empty($this->transaction)) {
+            $id = self::getId();
+            Log::error("**Payment** | $id : order not found $transactionId");
+            $this->message = "Order not found !";
+            $this->successful = false;
+            $this->response = new FinanceProviderGatewayResponse(null, null, $request->all());
+        }
+        return $this->transaction;
+    }
+}
+
+```
+
 Response handle
 
 ```php
