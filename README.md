@@ -12,6 +12,10 @@
 ```shell
 composer require nycorp/finance
 ```
+Then
+```shell
+composer require nycorp/lite-api
+```
 
 #### Configuration
 
