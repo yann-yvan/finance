@@ -17,6 +17,14 @@ return [
     'finance_account_id_parameter' => "finance_account_id",
 
 
+    /*
+       |--------------------------------------------------------------------------
+       | Allow providers
+       |--------------------------------------------------------------------------
+       |
+       | A payment gateway that are available and manage by the payment service
+       |
+       */
     'payment_providers' => [
         \NYCorp\Finance\Http\Payment\DefaultPaymentProvider::class,
         \NYCorp\Finance\Http\Payment\OrangePaymentProvider::class,
@@ -25,17 +33,4 @@ return [
 
     'force_balance_check_min_amount' => 5000,
 
-    /*
-       |--------------------------------------------------------------------------
-       | The method to launch in case of success
-       |--------------------------------------------------------------------------
-       |
-       | A class to make action after successful transaction
-       |
-       | success($financeWallet,$user){}
-       |
-       | E.g. [ 'class' => \NYCorp\Finance\Http\Payment\Notification::class, 'method' => 'success' ]
-       |
-       */
-    'deposit_success_notification' => ["class" => null, "method" => null],
 ];

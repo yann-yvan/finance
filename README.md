@@ -199,8 +199,32 @@ class CustomPaymentProvider extends PaymentProviderGateway
         return $this->transaction;
     }
 }
-
 ```
+
+## Register provider in config
+
+```php
+return [
+    'default_payment_provider_id' => 'LOCAL_PROVIDER',
+    'default_payment_provider_name' => env('APP_NAME')."'s Local Provider",
+    'default_threshold' => 0, #minimum account balance applied to all model
+    'default_currency' => 'USD',
+    'refresh_account_ttl' => 60, #in minute
+    'payment_providers' => [
+        \NYCorp\Finance\Http\Payment\DefaultPaymentProvider::class,
+        \NYCorp\Finance\Http\Payment\CustomPaymentProvider::class,
+    ],
+
+    'force_balance_check_min_amount' => 5000,
+    'prefix' => 'finance',
+    'middleware' => ['api'],
+
+
+    'user_email_field' => "email",
+    'finance_account_id_parameter' => "finance_account_id",
+];
+```
+
 
 ## Response handle
 
