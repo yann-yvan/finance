@@ -121,18 +121,11 @@ class FinanceTransactionController extends Controller
 
         //Launch custom action after success
         if ($transaction->state === FinanceTransaction::STATE_COMPLETED) {
-
             try {
                 event(new FinanceTransactionSuccessEvent($transaction->wallet->owner, $transaction));
             }catch (Exception|\Throwable $exception){
-                Log::error("Finance Lib Event " .$exception->getMessage() ,$exception->getTrace());
+                Log::error("Finance success Event " .$exception->getMessage() ,$exception->getTrace());
             }
-
-            /* $clazz = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.class");
-             $method = config(Finance::FINANCE_CONFIG_NAME . ".deposit_success_notification.method");
-             if (!empty($clazz) && !empty($method)) {
-                 (new $clazz())->{$method}($transaction->wallet, $transaction->wallet->owner);
-             }*/
         }
     }
 
@@ -159,7 +152,6 @@ class FinanceTransactionController extends Controller
         }
 
         Log::info("New Balance " . $balance);
-
     }
 
     public function getModel(): Model
