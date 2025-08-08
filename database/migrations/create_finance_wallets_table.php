@@ -14,7 +14,7 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::create('finance_wallets', function (Blueprint $table) {
+        Schema::create('finance_wallets', static function (Blueprint $table) {
             $table->string('id')->primary();  // Primary key for the wallet
             $table->string('owner_id');  // ID of the owner (user, company, etc.)
             $table->string('owner_type');  // Polymorphic type for the owner (e.g., 'User' or 'Company')

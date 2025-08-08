@@ -12,7 +12,7 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::create('finance_accounts', function (Blueprint $table) {
+        Schema::create('finance_accounts', static function (Blueprint $table) {
             $table->id();
             $table->decimal('credibility',13,5)->index();
             $table->decimal('threshold', 13, 5)->nullable();

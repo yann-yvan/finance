@@ -4,6 +4,7 @@
 namespace NYCorp\Finance\Http\Payment;
 
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Interfaces\InternalProvider;
@@ -30,6 +31,9 @@ abstract class PaymentProviderGateway implements IPaymentProvider
         $this->transaction = new FinanceTransaction();
     }
 
+    /**
+     * @throws LiteResponseException
+     */
     public static function load($id = null): PaymentProviderGateway
     {
         $requestedGatewayProvider = null;
@@ -74,6 +78,8 @@ abstract class PaymentProviderGateway implements IPaymentProvider
         return $requestedGatewayProvider;
     }
 
+    abstract public static function getId(): string;
+
     protected function isAvailable(): bool
     {
         return true;
@@ -110,14 +116,14 @@ abstract class PaymentProviderGateway implements IPaymentProvider
         $this->message = $message;
     }
 
-    public static function depositNotificationUrl(string $providerId): string
+    public function depositNotificationUrl(): string
     {
-        return route('finance.wallet.deposit.notification', $providerId);
+        return route('finance.wallet.deposit.notification', self::getId());
     }
 
-    public static function withdrawalNotificationUrl(string $providerId): string
+    public function withdrawalNotificationUrl(): string
     {
-        return route('finance.wallet.withdrawal.notification', $providerId);
+        return route('finance.wallet.withdrawal.notification', self::getId());
     }
 
     /**
@@ -199,5 +205,19 @@ abstract class PaymentProviderGateway implements IPaymentProvider
             $wallet = new FinanceWallet();
         }
         return $wallet;
+    }
+
+    protected function findTransaction(Request $request, string $key): ?FinanceTransaction
+    {
+        $transactionId = $request->get($key);
+        $this->transaction = FinanceTransaction::find($transactionId);
+        if (empty($this->transaction)) {
+            $id = self::getId();
+            Log::error("**Payment** | $id : order not found $transactionId");
+            $this->message = "Order not found !";
+            $this->successful = false;
+            $this->response = new FinanceProviderGatewayResponse(null, null, $request->all());
+        }
+        return $this->transaction;
     }
 }

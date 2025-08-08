@@ -15,7 +15,7 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::create('finance_transactions', function (Blueprint $table) {
+        Schema::create('finance_transactions', static function (Blueprint $table) {
             $table->string('id')->primary(); // Primary key for the transaction
             $table->decimal('amount', 13, 5)->index(); // Amount of the transaction with high precision
             $table->string('currency')->index(); // Amount of the transaction with high precision
