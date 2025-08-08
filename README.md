@@ -136,7 +136,7 @@ class CustomPaymentProvider extends PaymentProviderGateway
         #Your custom logic here
         
         //use this url for callback
-        $callbackUrl = self::depositNotificationUrl(self::getId());
+        $callbackUrl = self::depositNotificationUrl();
 
         $response = Http::post('https://api-checkout/v2/payment', $formData);
         $this->successful = $response->successful();
@@ -160,7 +160,7 @@ class CustomPaymentProvider extends PaymentProviderGateway
         #Your custom logic here
         
         //use this url for callback
-        $callbackUrl = self::depositNotificationUrl(self::getId());
+        $callbackUrl = self::withdrawalNotificationUrl();
 
         $response = Http::post('https://api-checkout/v2/payment', $formData);
         $this->successful = $response->successful();

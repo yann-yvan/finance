@@ -33,7 +33,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
             #->setClientEmail(Finance::getFinanceAccount()->{config(Finance::FINANCE_CONFIG_NAME . ".user_email_field")})
             //->setClientName("$user->first_name $user->last_name")
             ->setCommandID($transaction->id)
-            ->setNotifyPage($this->depositNotificationUrl(self::getId()))
+            ->setNotifyPage($this->depositNotificationUrl())
             ->setOTPCode(request()->get('otp'))
             ->setDescription($transaction->description)
             ->setMethod(request()->get('mode'));
