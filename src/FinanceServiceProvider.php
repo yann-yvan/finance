@@ -7,7 +7,6 @@ namespace NYCorp\Finance;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use NYCorp\Finance\Http\Core\ConfigReader;
-use NYCorp\Finance\Http\Core\Finance;
 
 class FinanceServiceProvider extends ServiceProvider
 {
@@ -28,6 +27,7 @@ class FinanceServiceProvider extends ServiceProvider
                 'CreateFinanceTransactionsTable',
                 'CreateFinanceWalletsTable',
                 'CreateFinanceAccountsTable',
+                'AddSignatureVersionToFinanceTransactions',
             ];
 
             $migrations = [];
