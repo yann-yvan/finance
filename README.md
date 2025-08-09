@@ -112,7 +112,7 @@ php artisan make:listener SuccessFinanceTransactionListener --event=FinanceTrans
         # In case you handle multiple model
         match (get_class($event->model)) {
             Model1::class => $this->handleModel1($event),
-            Model1::class => $this->hanleModel2($event),
+            Model2::class => $this->hanleModel2($event),
             default => static fn() => Log::warning("FinanceTransactionSuccessEvent Model not handle")
         };
     }

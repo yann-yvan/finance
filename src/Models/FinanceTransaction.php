@@ -313,8 +313,12 @@ class FinanceTransaction extends Model
         return $this->hasOne(FinanceWallet::class);
     }
 
-    public function getConvertedAmount(): float
+    public function getConvertedAmount(bool $asInt = false): float
     {
-        return ExchangeRate::round(abs($this->amount) * Arr::get($this->start_log,'parameters.exchange_rate.value',1));
+        $amount = abs($this->amount) * Arr::get($this->start_log, 'parameters.exchange_rate.value', 1);
+        if ($asInt) {
+            return ceil($amount);
+        }
+        return ExchangeRate::round($amount);
     }
 }

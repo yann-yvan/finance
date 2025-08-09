@@ -118,12 +118,12 @@ abstract class PaymentProviderGateway implements IPaymentProvider
 
     public function depositNotificationUrl(): string
     {
-        return route('finance.wallet.deposit.notification', self::getId());
+        return route('finance.wallet.deposit.notification', static::getId());
     }
 
     public function withdrawalNotificationUrl(): string
     {
-        return route('finance.wallet.withdrawal.notification', self::getId());
+        return route('finance.wallet.withdrawal.notification', static::getId());
     }
 
     /**
@@ -212,7 +212,7 @@ abstract class PaymentProviderGateway implements IPaymentProvider
         $transactionId = $request->get($key);
         $this->transaction = FinanceTransaction::find($transactionId);
         if (empty($this->transaction)) {
-            $id = self::getId();
+            $id = static::getId();
             Log::error("**Payment** | $id : order not found $transactionId");
             $this->message = "Order not found !";
             $this->successful = false;
