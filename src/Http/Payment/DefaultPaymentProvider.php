@@ -69,4 +69,9 @@ class DefaultPaymentProvider extends PaymentProviderGateway implements InternalP
     {
         return false;
     }
+
+    public static function getCurrency(): string
+    {
+        return ConfigReader::getDefaultCurrency();
+    }
 }

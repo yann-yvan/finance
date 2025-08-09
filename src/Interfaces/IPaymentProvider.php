@@ -22,4 +22,6 @@ interface IPaymentProvider
 
     public static function getName(): string;
 
+    public static function getCurrency(): string;
+
 }

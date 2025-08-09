@@ -36,6 +36,15 @@ class ConfigReader
         return config(self::FINANCE_CONFIG . ".default_currency");
     }
 
+    public static function getExchangeRateApiKey()
+    {
+        return config(self::FINANCE_CONFIG . ".exchange_rate_api_key");
+    }
+    public static function getExchangeRateRefreshTTL()
+    {
+        return config(self::FINANCE_CONFIG . ".exchange_rate_refresh_ttl");
+    }
+
     public static function getRefreshTtl()
     {
         return config(self::FINANCE_CONFIG . ".refresh_account_ttl");

@@ -4,14 +4,43 @@
 namespace NYCorp\Finance\Models;
 
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use NYCorp\Finance\Exceptions\CompromisedTransactionException;
 use NYCorp\Finance\Exceptions\LockedTransactionException;
+use NYCorp\Finance\Http\Core\ExchangeRate;
 use Nycorp\LiteApi\Models\ResponseCode;
 
+/**
+ * Class FinanceTransaction
+ *
+ * @property string $id
+ * @property float $amount
+ * @property string $currency
+ * @property Carbon|null $verify_at
+ * @property array $start_log
+ * @property array|null $end_log
+ * @property string|null $external_id
+ * @property string $start_signature
+ * @property string $description
+ * @property bool $is_locked
+ * @property string|null $checksum
+ * @property string $state
+ * @property int $finance_provider_id
+ * @property int $signature_version
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ *
+ * @property FinanceProvider $finance_provider
+ * @property FinanceWallet|null $finance_wallet
+ *
+ * @package App\Models\Base
+ */
 class FinanceTransaction extends Model
 {
     // Constant definitions for column names
@@ -38,6 +67,7 @@ class FinanceTransaction extends Model
     public const STATE = 'state';
     public const CHECKSUM = 'checksum';
     public const FINANCE_PROVIDER_ID = 'finance_provider_id';
+    public const SIGNATURE_VERSION = 'signature_version';
 
     /*
      *  Primary key is not auto-incrementing
@@ -64,6 +94,7 @@ class FinanceTransaction extends Model
         self::CURRENCY,
         self::DESCRIPTION,
         self::STATE,
+        self::SIGNATURE_VERSION,
         self::FINANCE_PROVIDER_ID,
     ];
 
@@ -97,8 +128,13 @@ class FinanceTransaction extends Model
         parent::boot();
 
         static::creating(static function (FinanceTransaction $model) {
-            $model->id = Str::uuid(); // Generate UUID as a string for ID
+            $model->id = Str::uuid()->toString(); // Generate UUID as a string for ID
             $model->state = self::STATE_PENDING;
+
+            if (Schema::hasColumn($model->getTable(), 'signature_version')) {
+                // Use v2 signature logic
+                $model->signature_version = 2;
+            }
 
             // Generate the start signature when creating the transaction
             $model->generateStartSignature();
@@ -119,13 +155,22 @@ class FinanceTransaction extends Model
         });
     }
 
-    /**
-     * Generate the start signature based on the initial fields of the transaction
-     */
     public function generateStartSignature(): void
     {
-        $fields = $this->getStartSignatureFields();
-        $this->start_signature = $this->generateHash($fields);
+        $this->start_signature = $this->calculateStartSignature();
+    }
+
+    public function calculateStartSignature(): string
+    {
+        $version = $this->signature_version ?? 1;
+
+        if ($version === 2) {
+            $fields = $this->getStartSignatureFieldsV2();
+        } else {
+            $fields = $this->getStartSignatureFieldsV1();
+        }
+
+        return $this->generateHash($fields);
     }
 
     /**
@@ -133,7 +178,25 @@ class FinanceTransaction extends Model
      *
      * @return array
      */
-    protected function getStartSignatureFields(): array
+    protected function getStartSignatureFieldsV2(): array
+    {
+        return [
+            $this->{self::ID},
+            $this->{self::AMOUNT},
+            json_encode($this->{self::START_LOG}),
+            #$this->getOriginal(self::STATE) ?? $this->{self::STATE},
+            $this->{self::CURRENCY},
+            $this->{self::DESCRIPTION},
+            $this->{self::FINANCE_PROVIDER_ID},
+        ];
+    }
+
+    /**
+     * Get the fields to be included in the start signature generation
+     *
+     * @return array
+     */
+    protected function getStartSignatureFieldsV1(): array
     {
         return [
             self::ID,
@@ -175,10 +238,7 @@ class FinanceTransaction extends Model
      */
     public function verifyStartSignature(): void
     {
-        $fields = $this->getStartSignatureFields();
-        $expectedSignature = $this->generateHash($fields);
-
-        if ($this->start_signature !== $expectedSignature) {
+        if ($this->start_signature !== $this->calculateStartSignature()) {
             throw new CompromisedTransactionException(code: ResponseCode::REQUEST_VALIDATION_ERROR, message: 'Start signature has been tampered with.');
         }
     }
@@ -196,17 +256,37 @@ class FinanceTransaction extends Model
      */
     public function calculateChecksum(): string
     {
-        $fields = array_merge($this->getStartSignatureFields(), $this->getEndSignatureFields());
-        return $this->generateHash($fields);
-    }
+        $version = $this->signature_version ?? 1;
 
+        $startFields = $version === 2 ? $this->getStartSignatureFieldsV2() : $this->getStartSignatureFieldsV1();
+
+        $endFields = $version === 2 ? $this->getEndSignatureFieldsV2() : $this->getEndSignatureFieldsV1();
+
+        return $this->generateHash(array_merge($startFields, $endFields));
+    }
 
     /**
      * Get the fields to be included in the checksum calculation for end of transaction
      *
      * @return array
      */
-    protected function getEndSignatureFields(): array
+    protected function getEndSignatureFieldsV2(): array
+    {
+        return [
+            $this->{self::START_SIGNATURE},
+            $this->{self::STATE},
+            json_encode($this->{self::END_LOG}),
+            $this->{self::VERIFY_AT},
+            $this->{self::EXTERNAL_ID},
+        ];
+    }
+
+    /**
+     * Get the fields to be included in the checksum calculation for end of transaction
+     *
+     * @return array
+     */
+    protected function getEndSignatureFieldsV1(): array
     {
         return [
             self::END_LOG,
@@ -231,5 +311,10 @@ class FinanceTransaction extends Model
     public function wallet(): HasOne
     {
         return $this->hasOne(FinanceWallet::class);
+    }
+
+    public function getConvertedAmount(): float
+    {
+        return ExchangeRate::round($this->amount * Arr::get($this->start_log,'parameters.exchange_rate.value',1));
     }
 }

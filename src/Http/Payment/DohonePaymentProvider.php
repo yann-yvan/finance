@@ -28,7 +28,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
     public function deposit(FinanceTransaction $transaction): PaymentProviderGateway
     {
         $api = DohonePayIn::payWithAPI()
-            ->setAmount($transaction->amount)
+            ->setAmount($transaction->getConvertedAmount())
             ->setClientPhone(request()->get('phone'))
             #->setClientEmail(Finance::getFinanceAccount()->{config(Finance::FINANCE_CONFIG_NAME . ".user_email_field")})
             //->setClientName("$user->first_name $user->last_name")
@@ -48,7 +48,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
     public function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway
     {
         $api = DohonePayOut::mobile()
-            ->setAmount($transaction->amount)
+            ->setAmount($transaction->getConvertedAmount())
             ->setMethod(request()->get('mode'))
             ->setPayerPhoneAccount(config("dohone.payOutPhoneAccount"))
             ->setReceiverAccount(request()->get('receiver_phone'))
@@ -108,5 +108,10 @@ class DohonePaymentProvider extends PaymentProviderGateway
         $this->message = $result->getMessage();
         $this->response = new FinanceProviderGatewayResponse(null, null, $result->getErrors(), $result->shouldVerifySMS(), $result->getPaymentUrl());
         return $this;
+    }
+
+    public static function getCurrency(): string
+    {
+        return 'XAF';
     }
 }

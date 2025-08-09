@@ -38,4 +38,9 @@ class OrangePaymentProvider extends PaymentProviderGateway
     {
         return $this;
     }
+
+    public static function getCurrency(): string
+    {
+        return 'XAF';
+    }
 }

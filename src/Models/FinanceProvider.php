@@ -5,6 +5,7 @@ namespace NYCorp\Finance\Models;
 
 
 use Illuminate\Database\Eloquent\Model;
+use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 
 class FinanceProvider extends Model
 {
@@ -52,5 +53,10 @@ class FinanceProvider extends Model
     public function isDepositAvailable(): bool
     {
         return $this->{self::IS_DEPOSIT_AVAILABLE};
+    }
+
+    public function toGateway(): PaymentProviderGateway
+    {
+        return PaymentProviderGateway::load(id: $this->getKey());
     }
 }

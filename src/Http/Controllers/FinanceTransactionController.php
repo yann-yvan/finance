@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Events\FinanceTransactionSuccessEvent;
 use NYCorp\Finance\Http\Core\ConfigReader;
+use NYCorp\Finance\Http\Core\ExchangeRate;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceProvider;
@@ -77,6 +78,15 @@ class FinanceTransactionController extends Controller
                 throw new LiteResponseException(ResponseCode::REQUEST_VALIDATION_ERROR, "Not enough balance please make a deposit !!");
             }
 
+            # include exchange rate in logs for later use
+            $request = $request->merge([
+                'exchange_rate' => [
+                    'from' => $currency,
+                    'to' => $provider->toGateway()::getCurrency(),
+                    'value' => ExchangeRate::make($currency)->getRate($provider->toGateway()::getCurrency())
+                ]
+            ]);
+
             $data = [
                 FinanceTransaction::AMOUNT => $amount,
                 FinanceTransaction::CURRENCY => $currency,
@@ -123,8 +133,8 @@ class FinanceTransactionController extends Controller
         if ($transaction->state === FinanceTransaction::STATE_COMPLETED) {
             try {
                 event(new FinanceTransactionSuccessEvent($transaction->wallet->owner, $transaction));
-            }catch (Exception|\Throwable $exception){
-                Log::error("Finance success Event " .$exception->getMessage() ,$exception->getTrace());
+            } catch (Exception|\Throwable $exception) {
+                Log::error("Finance success Event " . $exception->getMessage(), $exception->getTrace());
             }
         }
     }
