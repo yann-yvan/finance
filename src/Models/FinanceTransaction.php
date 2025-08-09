@@ -315,6 +315,6 @@ class FinanceTransaction extends Model
 
     public function getConvertedAmount(): float
     {
-        return ExchangeRate::round($this->amount * Arr::get($this->start_log,'parameters.exchange_rate.value',1));
+        return ExchangeRate::round(abs($this->amount) * Arr::get($this->start_log,'parameters.exchange_rate.value',1));
     }
 }

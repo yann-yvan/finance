@@ -137,17 +137,14 @@ class CustomPaymentProvider extends PaymentProviderGateway
         
         //use this url for callback
         $callbackUrl = self::depositNotificationUrl();
+        
+        $amountToPay = $transaction->getConvertedAmount();
 
         $response = Http::post('https://api-checkout/v2/payment', $formData);
         $this->successful = $response->successful();
         $this->message = $response->json('description');
         $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, $response->body(), false, $response->json('data.payment_url'));
         return $this;
-    }
-
-    private function normalizeAmount($amount, string $id): int
-    {
-        return ceil($amount * Cache::get($id, 655));
     }
 
     public static function getId(): string
