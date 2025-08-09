@@ -4,37 +4,31 @@
 namespace NYCorp\Finance\Http\Controllers;
 
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Payment\DohonePaymentProvider;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
+use Nycorp\LiteApi\Models\ResponseCode;
+use Nycorp\LiteApi\Traits\ApiResponseTrait;
+use OpenApi\Annotations as OA;
 
-class FinanceController extends Controller
+class FinanceController
 {
+    use ApiResponseTrait;
 
-    /**
-     * @param Request $request
-     * @return void
-     * @throws \Nycorp\LiteApi\Exceptions\LiteResponseException
-     * @deprecated
-     */
-    public function onDepositSuccessDohone(Request $request)
-    {
-        FinanceTransactionController::close((PaymentProviderGateway::load(DohonePaymentProvider::getId()))->onDepositSuccess($request)->getTransaction());
-    }
-
-    public function depositNotification(string $provider, Request $request): void
+    public function depositNotification(string $provider, Request $request): JsonResponse
     {
         Log::info("Deposit Notification Received", $request->all());
         FinanceTransactionController::close((PaymentProviderGateway::load($provider))->onDepositSuccess($request)->getTransaction());
+        return self::liteResponse(ResponseCode::REQUEST_SUCCESS);
     }
 
-    public function withdrawalNotification(string $provider, Request $request): void
+    public function withdrawalNotification(string $provider, Request $request): JsonResponse
     {
         Log::info("Withdrawal Notification Received", $request->all());
         FinanceTransactionController::close((PaymentProviderGateway::load($provider))->onWithdrawalSuccess($request)->getTransaction());
+        return self::liteResponse(ResponseCode::REQUEST_SUCCESS);
     }
 
     /**
@@ -77,21 +71,6 @@ class FinanceController extends Controller
      */
     public function dohoneSmsVerification(Request $request): JsonResponse
     {
-        #return $this->reply((new DohonePaymentProvider())->SMSConfirmation($request->code, $request->phone));
-    }
-
-    public function getModel(): Model
-    {
-        // TODO: Implement getModel() method.
-    }
-
-    public function addRule(): array
-    {
-        // TODO: Implement addRule() method.
-    }
-
-    public function updateRule(mixed $modelId): array
-    {
-        // TODO: Implement updateRule() method.
+        return response()->json((new DohonePaymentProvider())->SMSConfirmation($request->code, $request->phone));
     }
 }
