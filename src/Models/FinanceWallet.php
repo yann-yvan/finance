@@ -7,6 +7,7 @@ namespace NYCorp\Finance\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
 use NYCorp\Finance\Scope\InvalidWalletScope;
 
@@ -18,7 +19,6 @@ class FinanceWallet extends Model
     public const OWNER_TYPE = 'owner_type';
 
     public const CHECKSUM = 'checksum';
-
 
     public const FINANCE_TRANSACTION_ID = 'finance_transaction_id';
 
@@ -95,9 +95,9 @@ class FinanceWallet extends Model
     /**
      * The owner related to the wallet.
      */
-    public function owner(): BelongsTo
+    public function owner(): MorphTo
     {
-        return $this->belongsTo($this->{self::OWNER_TYPE}, self::OWNER_ID);
+        return $this->morphTo();
     }
 
     public function finance_account(): HasOne
