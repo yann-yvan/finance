@@ -4,6 +4,7 @@
 namespace NYCorp\Finance\Models;
 
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 
@@ -53,6 +54,26 @@ class FinanceProvider extends Model
     public function isDepositAvailable(): bool
     {
         return $this->{self::IS_DEPOSIT_AVAILABLE};
+    }
+
+    public function scopeAvailable(Builder $builder): Builder
+    {
+        return $builder->where('is_available', true);
+    }
+
+    public function scopePublic(Builder $builder): Builder
+    {
+        return $builder->where('is_public', true);
+    }
+
+    public function scopeCanCollect(Builder $builder): Builder
+    {
+        return $builder->where('is_deposit_available', true);
+    }
+
+    public function scopeCanWithdraw(Builder $builder): Builder
+    {
+        return $builder->where('is_withdrawal_available', true);
     }
 
     public function toGateway(): PaymentProviderGateway
