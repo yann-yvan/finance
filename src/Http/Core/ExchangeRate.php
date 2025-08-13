@@ -65,7 +65,7 @@ class ExchangeRate
      */
     public function exchangeTo(string $currency, float $amount): float
     {
-        return round($amount / $this->getRate($currency));
+        return round($amount * $this->getRate($currency));
     }
 
     public function getRate($currency): float
@@ -82,6 +82,6 @@ class ExchangeRate
      */
     public function exchangeFrom(string $currency, float $amount): float
     {
-        return round($amount * $this->getRate($currency));
+        return round($amount / $this->getRate($currency));
     }
 }
