@@ -57,8 +57,31 @@ class ExchangeRate
         return $this->rates;
     }
 
+    /**
+     * From base currency to target currency
+     * @param string $currency
+     * @param float $amount
+     * @return float
+     */
+    public function exchangeTo(string $currency, float $amount): float
+    {
+        return round($amount / $this->getRate($currency));
+    }
+
     public function getRate($currency): float
     {
         return Arr::get($this->rates, $currency);
+    }
+
+
+    /**
+     * From target currency to base currency
+     * @param string $currency
+     * @param float $amount
+     * @return float
+     */
+    public function exchangeFrom(string $currency, float $amount): float
+    {
+        return round($amount * $this->getRate($currency));
     }
 }
