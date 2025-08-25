@@ -131,6 +131,23 @@ class FinanceTransactionController extends Controller
 
         //Launch custom action after success
         if ($transaction->state === FinanceTransaction::STATE_COMPLETED) {
+
+            # Update balance
+            defer(static function () use ($transaction) {
+                $account = $transaction->wallet->owner->finance_accounts
+                    ->firstWhere(FinanceAccount::CURRENCY, $transaction->currency);
+
+                if (empty($account)) {
+                    $balance = $transaction->wallet->owner->balance;
+                } else {
+                    $balance = $account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
+                    FinanceAccount::find($account->id)?->update([FinanceAccount::CREDIBILITY => $balance]);
+                }
+
+                Log::info("New Balance " . $balance);
+            });
+
+
             try {
                 event(new FinanceTransactionSuccessEvent($transaction->wallet->owner, $transaction));
             } catch (Exception|\Throwable $exception) {
@@ -151,17 +168,6 @@ class FinanceTransactionController extends Controller
         $transaction->end_log = self::getHttpLog(\request());
         $transaction->verify_at = Carbon::now();
         $transaction->save();
-
-        if (empty($transaction->wallet->owner->finance_account)) {
-            $balance = $transaction->wallet->owner->balance;
-        } else {
-            $balance = $transaction->wallet->owner->finance_account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
-            $transaction->wallet->owner->finance_account->update([
-                FinanceAccount::CREDIBILITY => $balance
-            ]);
-        }
-
-        Log::info("New Balance " . $balance);
     }
 
     public function getModel(): Model

@@ -6,6 +6,7 @@ namespace NYCorp\Finance\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
@@ -103,6 +104,11 @@ class FinanceWallet extends Model
     public function finance_account(): HasOne
     {
         return $this->hasOne(FinanceAccount::class, FinanceAccount::OWNER_ID, FinanceWallet::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, __CLASS__);
+    }
+
+    public function finance_accounts(): HasMany
+    {
+        return $this->hasMany(FinanceAccount::class, FinanceAccount::OWNER_ID, FinanceWallet::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, __CLASS__);
     }
 
     /**
