@@ -29,7 +29,7 @@ trait FinanceAccountTrait
 
     public function getBalanceAttribute(): float
     {
-        return $this->balanceChecksum(false, ConfigReader::getDefaultCurrency());
+        return $this->balanceChecksum(false, $this->getCurrency());
     }
 
     /**
