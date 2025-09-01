@@ -37,9 +37,10 @@ class FinanceTransactionController extends Controller
      * Display a listing of the resource.
      *
      * @param Request $request
-     *
+     * @param Model $accountable
+     * @param string $movement
      * @return JsonResponse
-     * @throws Exception
+     * @throws LiteResponseException
      */
     public static function init(Request $request, Model $accountable, string $movement): JsonResponse
     {
@@ -139,6 +140,7 @@ class FinanceTransactionController extends Controller
                 if (empty($account)) {
                     $balance = $transaction->wallet->owner->balance;
                 } else {
+
                     $balance = $account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
                     FinanceAccount::find($account->id)?->update([FinanceAccount::CREDIBILITY => $balance]);
                 }

@@ -20,6 +20,7 @@ class ExchangeRate
         $keyBackup = "{$currency}_base_rates_backup";
 
         $currencies = Cache::get($key, static function () use ($currency, $key, $keyBackup) {
+            Log::debug("$currency base currency exchange rate update in progress");
             try {
                 $apiKey = ConfigReader::getExchangeRateApiKey();
                 $response = Http::get("https://api.exchangeratesapi.io/v1/latest?access_key=$apiKey&base=$currency");
@@ -32,21 +33,15 @@ class ExchangeRate
                 }
             } catch (\Exception|\Throwable $exception) {
                 Log::error("$currency base currency exchange rate updated with " . $exception->getMessage(), $exception->getTrace());
-
             }
 
-            $currencies = Cache::get($keyBackup);
+            $currencies = Cache::get($keyBackup, []);
             Log::warning("$currency base currency exchange rate backup used", $currencies);
             return $currencies;
         });
 
         $instance->rates = Arr::get($currencies ?? [], 'rates');
         return $instance;
-    }
-
-    public static function round($amount): float
-    {
-        return round($amount, 4);
     }
 
     /**
@@ -66,6 +61,11 @@ class ExchangeRate
     public function exchangeTo(string $currency, float $amount): float
     {
         return self::round($amount * $this->getRate($currency));
+    }
+
+    public static function round($amount): float
+    {
+        return round($amount, 4);
     }
 
     public function getRate($currency): float

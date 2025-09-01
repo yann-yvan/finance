@@ -64,7 +64,7 @@ trait FinanceAccountTrait
 
             FinanceTransaction::whereHas('wallet', function ($q) {
                 $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
-            })->chunk(1000,
+            })->where('currency', $currency)->chunk(1000,
                 function ($transactions) use (&$validBalance, &$invalidBalance, &$logs) {
                     foreach ($transactions as $transaction) {
                         // Verify the checksum for each transaction
