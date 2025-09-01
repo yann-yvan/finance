@@ -29,88 +29,98 @@ trait FinanceAccountTrait
 
     public function getBalanceAttribute(): float
     {
-        return $this->balanceChecksum();
+        return $this->balanceChecksum(false, ConfigReader::getDefaultCurrency());
     }
 
     /**
-     * @param bool $always
+     * @param bool $verifyChecksum
+     * @param string $currency
      * @return float
      */
-    public function balanceChecksum(bool $always = false): float
+    public function balanceChecksum(bool $verifyChecksum, string $currency): float
     {
         $account = FinanceAccount::where(FinanceAccount::OWNER_TYPE, __CLASS__)
-            ->where(FinanceAccount::LAST_VERIFICATION_AT, '>', now()->subHours(ConfigReader::getRefreshTtl()))
+            ->where(FinanceAccount::CURRENCY, $currency)
+            ->where(FinanceAccount::LAST_VERIFICATION_AT, '>', now()->subMinutes(ConfigReader::getRefreshTtl()))
             ->where(FinanceAccount::OWNER_ID, $this->getKey())->first();
 
         //Check if is force or record has expired
-        if ($account && !$always) {
+        if ($account && !$verifyChecksum) {
             #Log::debug("Balance reading");
             return $account->{FinanceAccount::CREDIBILITY};
         }
 
-        return $this->calculator();
+        return $this->calculator($verifyChecksum, $currency);
     }
 
-    public function calculator(bool $verifyChecksum = false): float
+    private function calculator(bool $verifyChecksum, string $currency): float
     {
-        $balance = 0;
-        $active = true;
+        $validBalance = 0;
+        $invalidBalance = 0;
         $logs = [];
-
 
         if ($verifyChecksum) {
             Log::debug(__CLASS__ . " balance verification and calculation for " . $this->getKey());
 
-            $transactions = FinanceTransaction::whereHas('wallet', function ($q) {
+            FinanceTransaction::whereHas('wallet', function ($q) {
                 $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
-            })->get();
+            })->chunk(1000,
+                function ($transaction) use (&$validBalance, &$invalidBalance, &$logs) {
+                    // Verify the checksum for each transaction
+                    if ($transaction->verifyChecksum()) {
+                        // If checksum is valid, add the transaction amount to the balance
+                        $validBalance += $transaction->amount;
+                    } else {
+                        $invalidBalance += $transaction->amount;
+                        $log = ['reason' => 'Corrupted transaction id ', 'id' => $transaction->id];
+                        $logs[] = $log;
+                        // If checksum is invalid, lock the account and log the issue
+                        #break;  // Stop further processing for invalid transactions
+                        Log::critical("Finance", $log);
+                    }
+                },
+            );
 
-            foreach ($transactions as $transaction) {
-                // Verify the checksum for each transaction
-                if ($active = $transaction->verifyChecksum()) {
-                    // If checksum is valid, add the transaction amount to the balance
-                    $balance += $transaction->amount;
-                } else {
-                    $logs[] = ['reason' => 'Corrupted transaction id ', 'id' => $transaction->id];
-                    // If checksum is invalid, lock the account and log the issue
-                    #break;  // Stop further processing for invalid transactions
-                }
-            }
+            $this->persistBalance($currency, $validBalance, $logs);
 
-            if (!$active) {
-                Log::critical("Wallet locked due to an invalid transaction checksum.", array_merge($logs, [
-                    'transaction_id' => $transaction->id,
-                    'owner_id' => $this->getKey(),
-                    'owner_type' => __CLASS__,
-                ]));
-            }
         } else {
             Log::debug(__CLASS__ . " balance calculation for " . $this->getKey());
 
             $balances = FinanceTransaction::whereHas('wallet', function ($q) {
                 $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
-            })->select(FinanceTransaction::CURRENCY, DB::raw('SUM(amount) as total_balance'))
-                ->groupBy(FinanceTransaction::CURRENCY)->pluck('total_balance', FinanceTransaction::CURRENCY)
+            })->select(FinanceTransaction::CURRENCY, DB::raw('SUM(amount) as balance'))
+                ->groupBy(FinanceTransaction::CURRENCY)->pluck('balance', FinanceTransaction::CURRENCY)
                 ->toArray();
 
-            $balance = Arr::get($balances, $this->getCurrency(), 0);
+            foreach ($balances as $cur => $balance) {
+                $this->persistBalance($cur, $balance, $logs);
+            }
+
+            $validBalance = Arr::get($balances, $currency, 0);
         }
 
+        if (!empty($logs)) {
+            Log::critical(static::class . " Wallet {$this->getKey()} balance $invalidBalance locked due to an invalid transaction checksum. ", $logs);
+        }
+
+        return $validBalance;
+    }
+
+    private function persistBalance(string $currency, float $balance, array $logs): void
+    {
         FinanceAccount::updateOrCreate(
             [
                 FinanceAccount::OWNER_TYPE => __CLASS__,
                 FinanceAccount::OWNER_ID => $this->getKey(),
-                FinanceAccount::CURRENCY => $this->getCurrency(),
+                FinanceAccount::CURRENCY => $currency,
             ],
             [
-                FinanceAccount::IS_ACCOUNT_ACTIVE => $active,
+                FinanceAccount::IS_ACCOUNT_ACTIVE => empty($logs),
                 FinanceAccount::ACCOUNT_LOGS => $logs,
                 FinanceAccount::CREDIBILITY => $balance,
                 FinanceAccount::LAST_VERIFICATION_AT => now(),
             ]
         );
-
-        return $balance;
     }
 
     public function getCurrency()
@@ -144,26 +154,33 @@ trait FinanceAccountTrait
 
     public function finance_account(): HasOne
     {
-        return $this->hasOne(FinanceAccount::class, FinanceAccount::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, __CLASS__);
+        return $this->hasOne(FinanceAccount::class, FinanceAccount::OWNER_ID)
+            ->where(FinanceAccount::OWNER_TYPE, __CLASS__)
+            ->where(FinanceAccount::CURRENCY, $this->getCurrency());
     }
 
-    public function deposit(string $providerId, float $amount, string $description): JsonResponse
+    public function deposit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
     {
-        return $this->makeTransaction($providerId, $amount, $description, FinanceTransaction::DEPOSIT_MOVEMENT);
+        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT);
     }
 
-    protected function makeTransaction(string $providerId, float $amount, string $description, string $movement): JsonResponse
+    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement): JsonResponse
     {
         if ($amount === 0.0) {
-            Log::warning("Useless transaction of amount $amount and $description");
-            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: "Useless transaction of amount $amount");
+            Log::warning("Useless transaction of amount $amount for $description");
+            return self::liteResponse(ResponseCode::REQUEST_VALIDATION_ERROR, message: "Useless transaction of amount $amount");
         }
 
-        $request = new Request(['provider_id' => $providerId, FinanceTransaction::AMOUNT => $amount, FinanceTransaction::CURRENCY => $this->getCurrency(), FinanceTransaction::DESCRIPTION => $description,]);
+        $request = new Request([
+            'provider_id' => $providerId,
+            FinanceTransaction::AMOUNT => $amount,
+            FinanceTransaction::CURRENCY => $currency ?? $this->getCurrency(),
+            FinanceTransaction::DESCRIPTION => $description,
+        ]);
 
         try {
             if (!$this->exists) {
-                throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing model.");
+                throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing record.");
             }
 
             Log::debug("starting a $movement");
@@ -184,9 +201,9 @@ trait FinanceAccountTrait
         }
     }
 
-    public function withdrawal(string $providerId, float $amount, string $description): JsonResponse
+    public function withdrawal(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
     {
-        return $this->makeTransaction($providerId, $amount, $description, FinanceTransaction::WITHDRAWAL_MOVEMENT);
+        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT);
     }
 
     public function setThreshold(float $minBalance): FinanceAccount
