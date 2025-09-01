@@ -130,7 +130,7 @@ trait FinanceAccountTrait
 
     public function getBalancesAttribute(): float
     {
-        return $this->balanceChecksum();
+        return $this->balanceChecksum(false, $this->getCurrency());
     }
 
     public function getClass(): string
@@ -141,7 +141,7 @@ trait FinanceAccountTrait
     public function canMakeTransaction(): bool
     {
         if (empty($this->finance_account)) {
-            $this->balanceChecksum();
+            $this->balanceChecksum(false, $this->getCurrency());
             $this->refresh();
         }
         return $this->finance_account->{FinanceAccount::IS_ACCOUNT_ACTIVE};
@@ -149,7 +149,7 @@ trait FinanceAccountTrait
 
     public function canWithdraw(float $amount, bool $forceBalanceCalculation): bool
     {
-        return $this->balanceChecksum($forceBalanceCalculation) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? ConfigReader::getDefaultThreshold());
+        return $this->balanceChecksum($forceBalanceCalculation, $this->getCurrency()) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? ConfigReader::getDefaultThreshold());
     }
 
     public function finance_account(): HasOne
@@ -209,7 +209,7 @@ trait FinanceAccountTrait
     public function setThreshold(float $minBalance): FinanceAccount
     {
         if (empty($this->finance_account)) {
-            $this->balanceChecksum();
+            $this->balanceChecksum(false, $this->getCurrency());
             $this->refresh();
         }
         $this->finance_account->update(
