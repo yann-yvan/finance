@@ -65,18 +65,20 @@ trait FinanceAccountTrait
             FinanceTransaction::whereHas('wallet', function ($q) {
                 $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
             })->chunk(1000,
-                function ($transaction) use (&$validBalance, &$invalidBalance, &$logs) {
-                    // Verify the checksum for each transaction
-                    if ($transaction->verifyChecksum()) {
-                        // If checksum is valid, add the transaction amount to the balance
-                        $validBalance += $transaction->amount;
-                    } else {
-                        $invalidBalance += $transaction->amount;
-                        $log = ['reason' => 'Corrupted transaction id ', 'id' => $transaction->id];
-                        $logs[] = $log;
-                        // If checksum is invalid, lock the account and log the issue
-                        #break;  // Stop further processing for invalid transactions
-                        Log::critical("Finance", $log);
+                function ($transactions) use (&$validBalance, &$invalidBalance, &$logs) {
+                    foreach ($transactions as $transaction) {
+                        // Verify the checksum for each transaction
+                        if ($transaction->verifyChecksum()) {
+                            // If checksum is valid, add the transaction amount to the balance
+                            $validBalance += $transaction->amount;
+                        } else {
+                            $invalidBalance += $transaction->amount;
+                            $log = ['reason' => 'Corrupted transaction id ', 'id' => $transaction->id];
+                            $logs[] = $log;
+                            // If checksum is invalid, lock the account and log the issue
+                            #break;  // Stop further processing for invalid transactions
+                            Log::critical("Finance", $log);
+                        }
                     }
                 },
             );
