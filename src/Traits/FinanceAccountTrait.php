@@ -5,6 +5,7 @@ namespace NYCorp\Finance\Traits;
 
 
 use Exception;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,9 +90,11 @@ trait FinanceAccountTrait
             Log::debug(__CLASS__ . " balance calculation for " . $this->getKey());
 
             $balances = FinanceTransaction::whereHas('wallet', function ($q) {
-                $q->where('owner_id', $this->getKey())->where('owner_type', __CLASS__);
+                $q->where('owner_id', $this->getKey())
+                    ->where('owner_type', __CLASS__);
             })->select(FinanceTransaction::CURRENCY, DB::raw('SUM(amount) as balance'))
-                ->groupBy(FinanceTransaction::CURRENCY)->pluck('balance', FinanceTransaction::CURRENCY)
+                ->groupBy(FinanceTransaction::CURRENCY)
+                ->pluck('balance', FinanceTransaction::CURRENCY)
                 ->toArray();
 
             foreach ($balances as $cur => $balance) {
@@ -159,6 +162,11 @@ trait FinanceAccountTrait
         return $this->hasOne(FinanceAccount::class, FinanceAccount::OWNER_ID)
             ->where(FinanceAccount::OWNER_TYPE, __CLASS__)
             ->where(FinanceAccount::CURRENCY, $this->getCurrency());
+    }
+
+    public function finance_accounts(): HasMany
+    {
+        return $this->hasMany(FinanceAccount::class, FinanceAccount::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, __CLASS__);
     }
 
     public function deposit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
