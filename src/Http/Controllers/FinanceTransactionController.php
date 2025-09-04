@@ -135,12 +135,11 @@ class FinanceTransactionController extends Controller
 
             # Update balance
             defer(static function () use ($transaction) {
-                $account = $transaction->wallet->finance_accounts->firstWhere(FinanceAccount::CURRENCY, $transaction->currency);
+                $account = $transaction->wallet->owner->finance_accounts->firstWhere(FinanceAccount::CURRENCY, $transaction->currency);
 
                 if (empty($account)) {
                     $balance = $transaction->wallet->owner->balance;
                 } else {
-
                     $balance = $account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
                     FinanceAccount::find($account->id)?->update([FinanceAccount::CREDIBILITY => $balance]);
                 }
