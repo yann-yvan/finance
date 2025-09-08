@@ -75,8 +75,8 @@ class FinanceTransactionController extends Controller
             $amount = $financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT ? abs($rawAmount) : -abs($rawAmount);
 
             //Check balance with the absolute value of the desire amount to withdrawal
-            if (($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT) && !$this->hasEnoughBalance(abs($rawAmount), $currency)) {
-                throw new LiteResponseException(ResponseCode::REQUEST_VALIDATION_ERROR, "Not enough balance please make a deposit !!");
+            if (($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT) && !$this->hasEnoughBalance(abs($amount), $currency)) {
+                throw new LiteResponseException(ResponseCode::REQUEST_VALIDATION_ERROR, "Not enough balance to withdraw $amount $currency please make a deposit !!");
             }
 
             # include exchange rate in logs for later use

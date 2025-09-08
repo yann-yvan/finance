@@ -169,6 +169,14 @@ trait FinanceAccountTrait
         return $this->hasMany(FinanceAccount::class, FinanceAccount::OWNER_ID)->where(FinanceAccount::OWNER_TYPE, __CLASS__);
     }
 
+    /**
+     * @param string $providerId
+     * @param float $amount
+     * @param string $description
+     * @param string|null $currency
+     * @return JsonResponse
+     * @deprecated
+     */
     public function deposit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
     {
         return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT);
@@ -211,7 +219,25 @@ trait FinanceAccountTrait
         }
     }
 
+    public function credit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
+    {
+        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT);
+    }
+
+    /**
+     * @param string $providerId
+     * @param float $amount
+     * @param string $description
+     * @param string|null $currency
+     * @return JsonResponse
+     * @deprecated
+     */
     public function withdrawal(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
+    {
+        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT);
+    }
+
+    public function debit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
     {
         return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT);
     }

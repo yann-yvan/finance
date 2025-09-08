@@ -141,7 +141,7 @@ class FinanceTransaction extends Model
         });
 
         // Hook into saving event to verify checksum and lock transactions
-        static::saving(static function ($model) {
+        static::updating(static function ($model) {
             if ($model->is_locked) {
                 throw new LockedTransactionException(code: ResponseCode::REQUEST_NOT_AUTHORIZED, message: "This transaction {$model->id} is locked and cannot be updated.");
             }
