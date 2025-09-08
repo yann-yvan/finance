@@ -152,9 +152,9 @@ trait FinanceAccountTrait
         return $this->finance_account->{FinanceAccount::IS_ACCOUNT_ACTIVE};
     }
 
-    public function canWithdraw(float $amount, bool $forceBalanceCalculation): bool
+    public function canWithdraw(float $amount, bool $forceBalanceCalculation, string $currency): bool
     {
-        return $this->balanceChecksum($forceBalanceCalculation, $this->getCurrency()) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? ConfigReader::getDefaultThreshold());
+        return $this->balanceChecksum($forceBalanceCalculation, $currency) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? ConfigReader::getDefaultThreshold());
     }
 
     public function finance_account(): HasOne

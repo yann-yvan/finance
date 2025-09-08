@@ -75,7 +75,7 @@ class FinanceTransactionController extends Controller
             $amount = $financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT ? abs($rawAmount) : -abs($rawAmount);
 
             //Check balance with the absolute value of the desire amount to withdrawal
-            if (($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT) && !$this->hasEnoughBalance(abs($rawAmount))) {
+            if (($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT) && !$this->hasEnoughBalance(abs($rawAmount), $currency)) {
                 throw new LiteResponseException(ResponseCode::REQUEST_VALIDATION_ERROR, "Not enough balance please make a deposit !!");
             }
 
@@ -104,10 +104,10 @@ class FinanceTransactionController extends Controller
         }
     }
 
-    private function hasEnoughBalance($amount): bool
+    private function hasEnoughBalance($amount, $currency): bool
     {
         $force = ConfigReader::getMinAmountCheckForce() >= $amount;
-        return $this->accountable->canWithdraw($amount, $force);
+        return $this->accountable->canWithdraw($amount, $force, $currency);
     }
 
     private static function getHttpLog(Request $request): array
