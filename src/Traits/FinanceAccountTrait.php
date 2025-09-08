@@ -154,7 +154,10 @@ trait FinanceAccountTrait
 
     public function canWithdraw(float $amount, bool $forceBalanceCalculation, string $currency): bool
     {
-        return $this->balanceChecksum($forceBalanceCalculation, $currency) - $amount >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? ConfigReader::getDefaultThreshold());
+        $balance = $this->balanceChecksum($forceBalanceCalculation, $currency);
+        # Use arbitrary precision math (bcmath) if you need exact decimal math (like for money)
+        # because of this case 0.81558 - 0.81558; // -1.1102230246252E-16
+        return bcsub($balance, $amount, 5) >= ($this->finance_account->{FinanceAccount::THRESHOLD} ?? ConfigReader::getDefaultThreshold());
     }
 
     public function finance_account(): HasOne
