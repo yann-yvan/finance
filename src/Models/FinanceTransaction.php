@@ -325,16 +325,16 @@ class FinanceTransaction extends Model
 
     public function scopeCredit($query)
     {
-        return $query->where('amount' ,'>=', 0);
+        return $query->where('amount', '>=', 0);
     }
 
     public function scopeDebit($query)
     {
-        return $query->where('amount' ,'<' ,0);
+        return $query->where('amount', '<', 0);
     }
 
     public function scopeNotDefaultProvider($query)
     {
-        return $query->where('finance_provider_id','<>', ConfigReader::getDefaultPaymentProviderId());
+        return $query->whereHas('financeProvider', fn($query) => $query->where('assigned_id', '<>', ConfigReader::getDefaultPaymentProviderId()));
     }
 }
