@@ -23,7 +23,7 @@ class ExchangeRate
             Log::debug("$currency base currency exchange rate update in progress");
             try {
                 $apiKey = ConfigReader::getExchangeRateApiKey();
-                $response = Http::get("https://api.exchangeratesapi.io/v1/latest?access_key=$apiKey&base=$currency");
+                $response = Http::get(ConfigReader::getExchangeRateApiUrl(), ["access_key" => $apiKey, "base" => $currency]);
                 if ($response->successful()) {
                     $currencies = $response->json();
                     Log::info("$currency base currency exchange rate updated", $currencies);

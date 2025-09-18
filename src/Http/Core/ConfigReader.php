@@ -40,6 +40,12 @@ class ConfigReader
     {
         return config(self::FINANCE_CONFIG . ".exchange_rate_api_key");
     }
+
+    public static function getExchangeRateApiUrl()
+    {
+        return config(self::FINANCE_CONFIG . ".exchange_rate_api_url");
+    }
+
     public static function getExchangeRateRefreshTTL()
     {
         return config(self::FINANCE_CONFIG . ".exchange_rate_refresh_ttl");

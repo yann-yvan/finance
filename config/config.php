@@ -6,6 +6,7 @@ return [
     'default_currency' => 'USD',
     'refresh_account_ttl' => 60, #in minute
 
+    'exchange_rate_api_url' => env('EXCHANGE_RATE_API_KEY','https://api.exchangeratesapi.io/v1/latest'),
     'exchange_rate_api_key' => env('EXCHANGE_RATE_API_KEY'),
     'exchange_rate_refresh_ttl' => env('EXCHANGE_RATE_REFRESH_TTL', 60 * 24 * 5), # in minute here is 5 days
 

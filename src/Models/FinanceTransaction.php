@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use NYCorp\Finance\Exceptions\CompromisedTransactionException;
 use NYCorp\Finance\Exceptions\LockedTransactionException;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Core\ExchangeRate;
 use Nycorp\LiteApi\Models\ResponseCode;
 
@@ -320,5 +321,20 @@ class FinanceTransaction extends Model
             return ceil($amount);
         }
         return ExchangeRate::round($amount);
+    }
+
+    public function scopeCredit($query)
+    {
+        return $query->where('amount' >= 0);
+    }
+
+    public function scopeDebit($query)
+    {
+        return $query->where('amount' < 0);
+    }
+
+    public function scopeNotDefaultProvider($query)
+    {
+        return $query->where('finance_provider_id','<>', ConfigReader::getDefaultPaymentProviderId());
     }
 }
