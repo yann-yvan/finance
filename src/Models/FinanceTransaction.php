@@ -323,6 +323,11 @@ class FinanceTransaction extends Model
         return ExchangeRate::round($amount);
     }
 
+    public function getSourceRateAmount(float $amount): float
+    {
+        return $amount * Arr::get($this->start_log, 'parameters.exchange_rate.value', 1);
+    }
+
     public function scopeCredit($query)
     {
         return $query->where('amount', '>=', 0);
