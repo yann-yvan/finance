@@ -33,6 +33,11 @@ Run migration
 php artisan migrate
 ```
 
+Get exchange rate API KEY of [https://api.exchangeratesapi.io](https://api.exchangeratesapi.io) and set in .env
+```env
+EXCHANGE_RATE_API_KEY=<api key>
+```
+
 ## Usage
 
 ### Add Finance Account Trait to any model
