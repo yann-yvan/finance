@@ -134,19 +134,18 @@ class FinanceTransactionController extends Controller
         if ($transaction->state === FinanceTransaction::STATE_COMPLETED) {
 
             # Update balance
-            defer(static function () use ($transaction) {
-                $account = $transaction->wallet->owner->finance_accounts->firstWhere(FinanceAccount::CURRENCY, $transaction->currency);
+            # defer(static function () use ($transaction) {
+            $account = $transaction->wallet->owner->finance_accounts->firstWhere(FinanceAccount::CURRENCY, $transaction->currency);
 
-                if (empty($account)) {
-                    $balance = $transaction->wallet->owner->balance;
-                } else {
-                    $balance = $account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
-                    FinanceAccount::find($account->id)?->update([FinanceAccount::CREDIBILITY => $balance]);
-                }
+            if (empty($account)) {
+                $balance = $transaction->wallet->owner->balance;
+            } else {
+                $balance = $account->{FinanceAccount::CREDIBILITY} + $transaction->{FinanceTransaction::AMOUNT};
+                FinanceAccount::find($account->id)?->update([FinanceAccount::CREDIBILITY => $balance]);
+            }
 
-                Log::info("New Balance " . $balance);
-            });
-
+            Log::info("New Balance " . $balance);
+            #});
 
             try {
                 event(new FinanceTransactionSuccessEvent($transaction->wallet->owner, $transaction));

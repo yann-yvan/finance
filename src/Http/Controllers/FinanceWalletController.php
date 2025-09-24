@@ -20,9 +20,9 @@ class FinanceWalletController extends Controller
      * @return JsonResponse
      * @throws Exception
      */
-    public static function persist($transaction, Model $accountable): JsonResponse
+    public static function persist($transaction, Model $accountable, ?string $fromWalletId = null): JsonResponse
     {
-        return (new FinanceWalletController())->store($transaction, $accountable);
+        return (new FinanceWalletController())->store($transaction, $accountable, $fromWalletId);
     }
 
     /**
@@ -30,10 +30,11 @@ class FinanceWalletController extends Controller
      *
      * @param $transaction
      * @param Model $model
+     * @param string|null $fromWalletId
      * @return JsonResponse
      * @throws Exception
      */
-    private function store($transaction, Model $model): JsonResponse
+    private function store($transaction, Model $model, ?string $fromWalletId = null): JsonResponse
     {
         $this->accountable = $model;
         try {
@@ -41,6 +42,7 @@ class FinanceWalletController extends Controller
                 FinanceWallet::OWNER_ID => $model->getKey(),
                 FinanceWallet::OWNER_TYPE => $model->getClass(),
                 FinanceWallet::FINANCE_TRANSACTION_ID => $transaction["id"],
+                FinanceWallet::TRANSFER_FROM_WALLET_ID => $fromWalletId,
             ];
             return $this->save($data);
         } catch (Exception   $exception) {
@@ -59,6 +61,7 @@ class FinanceWalletController extends Controller
             FinanceWallet::OWNER_ID => ['required', "exists:{$this->accountable->getTable()},id"],
             FinanceWallet::OWNER_TYPE => ['required'],
             FinanceWallet::FINANCE_TRANSACTION_ID => ['required', 'exists:finance_transactions,id'],
+            FinanceWallet::TRANSFER_FROM_WALLET_ID => ['nullable', 'exists:finance_wallets,id'],
         ];
     }
 

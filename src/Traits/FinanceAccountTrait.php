@@ -5,6 +5,7 @@ namespace NYCorp\Finance\Traits;
 
 
 use Exception;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Http\JsonResponse;
@@ -178,14 +179,14 @@ trait FinanceAccountTrait
      * @param string $description
      * @param string|null $currency
      * @return JsonResponse
-     * @deprecated
+     * @deprecated Use credit() instead
      */
     public function deposit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
     {
         return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT);
     }
 
-    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement): JsonResponse
+    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement, ?string $fromWalletId = null): JsonResponse
     {
         if ($amount === 0.0) {
             Log::warning("Useless transaction of amount $amount for $description");
@@ -207,7 +208,7 @@ trait FinanceAccountTrait
             Log::debug("starting a $movement");
             $transactionResponse = new DefResponse(FinanceTransactionController::init($request, $this, $movement));
             if ($transactionResponse->isSuccess()) {
-                $walletResponse = new DefResponse(FinanceWalletController::persist($transactionResponse->getData(), $this));
+                $walletResponse = new DefResponse(FinanceWalletController::persist($transactionResponse->getData(), $this, $fromWalletId));
                 if (!$walletResponse->isSuccess()) {
                     return $walletResponse->getResponse();
                 }
@@ -222,27 +223,51 @@ trait FinanceAccountTrait
         }
     }
 
-    public function credit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
-    {
-        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT);
-    }
-
     /**
      * @param string $providerId
      * @param float $amount
      * @param string $description
      * @param string|null $currency
      * @return JsonResponse
-     * @deprecated
+     * @deprecated Use debit() instead
      */
     public function withdrawal(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
     {
         return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT);
     }
 
-    public function debit(string $providerId, float $amount, string $description, ?string $currency = null): JsonResponse
+    public function transfer(Model $beneficiary, string $providerId, float $amount, string $description, ?string $currency = null): DefResponse
     {
-        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT);
+        if (!in_array(FinanceAccountTrait::class, class_uses($beneficiary), true)) {
+            return DefResponse::parse(self::liteResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, message: "Beneficiary not using FinanceAccountTrait"));
+        }
+
+        try {
+            Log::debug("starting a transfer");
+            return DB::transaction(function () use ($beneficiary, $currency, $description, $amount, $providerId) {
+                $debit = $this->debit($providerId, $amount, $description, $currency);
+                if ($debit->isSuccess()) {
+                    $credit = $beneficiary->credit($providerId, $amount, $description, $currency, Arr::get($debit->getBody(), 'wallet'));
+                    if (!$credit->isSuccess()) {
+                        throw new LiteResponseException(ResponseCode::REQUEST_EXCEPTION, $credit->getMessage());
+                    }
+                    return $credit;
+                }
+                return $debit;
+            });
+        } catch (Exception|Throwable $exception) {
+            return DefResponse::parse(self::liteResponse(ResponseCode::REQUEST_EXCEPTION, message: $exception->getMessage()));
+        }
+    }
+
+    public function debit(string $providerId, float $amount, string $description, ?string $currency = null): DefResponse
+    {
+        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT));
+    }
+
+    public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null): DefResponse
+    {
+        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet));
     }
 
     public function setThreshold(float $minBalance): FinanceAccount
