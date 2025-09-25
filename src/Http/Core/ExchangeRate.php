@@ -65,7 +65,7 @@ class ExchangeRate
 
     public static function round($amount): float
     {
-        return round($amount, 4);
+        return round($amount, 5);
     }
 
     public function getRate($currency): float

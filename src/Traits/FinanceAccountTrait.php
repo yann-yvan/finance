@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Http\Controllers\FinanceWalletController;
 use NYCorp\Finance\Http\Core\ConfigReader;
+use NYCorp\Finance\Http\Core\ExchangeRate;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceTransaction;
@@ -195,7 +196,7 @@ trait FinanceAccountTrait
 
         $request = new Request([
             'provider_id' => $providerId,
-            FinanceTransaction::AMOUNT => $amount,
+            FinanceTransaction::AMOUNT => ExchangeRate::round($amount),
             FinanceTransaction::CURRENCY => $currency ?? $this->getCurrency(),
             FinanceTransaction::DESCRIPTION => $description,
         ]);
