@@ -196,7 +196,7 @@ trait FinanceAccountTrait
 
         $request = new Request([
             'provider_id' => $providerId,
-            FinanceTransaction::AMOUNT => ExchangeRate::round($amount),
+            FinanceTransaction::AMOUNT => ExchangeRate::round($amount), # This to avoid tempered with in transaction in start signature
             FinanceTransaction::CURRENCY => $currency ?? $this->getCurrency(),
             FinanceTransaction::DESCRIPTION => $description,
         ]);
