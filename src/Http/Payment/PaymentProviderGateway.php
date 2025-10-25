@@ -137,7 +137,7 @@ abstract class PaymentProviderGateway implements IPaymentProvider
     /**
      * @param FinanceTransaction $transaction
      */
-    protected function setTransaction(FinanceTransaction $transaction): void
+    public function setTransaction(FinanceTransaction $transaction): void
     {
         $this->transaction = $transaction;
     }
@@ -201,7 +201,7 @@ abstract class PaymentProviderGateway implements IPaymentProvider
     protected function getWallet(FinanceTransaction $transaction): FinanceWallet
     {
         $wallet = FinanceWallet::withoutGlobalScope(InvalidWalletScope::class)->where(FinanceWallet::FINANCE_TRANSACTION_ID, $transaction->id)->first();
-        if (empty($wallet)) {
+        if ($wallet === null) {
             $wallet = new FinanceWallet();
         }
         return $wallet;
@@ -219,5 +219,10 @@ abstract class PaymentProviderGateway implements IPaymentProvider
             $this->response = new FinanceProviderGatewayResponse(null, null, $request->all());
         }
         return $this->transaction;
+    }
+
+    public function channel():string
+    {
+        return '';
     }
 }

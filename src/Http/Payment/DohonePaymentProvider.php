@@ -8,6 +8,7 @@ use Dohone\PayIn\DohonePayIn;
 use Dohone\PayOut\DohonePayOut;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
@@ -114,5 +115,10 @@ class DohonePaymentProvider extends PaymentProviderGateway
         $this->message = $result->getMessage();
         $this->response = new FinanceProviderGatewayResponse(null, null, $result->getErrors(), $result->shouldVerifySMS(), $result->getPaymentUrl());
         return $this;
+    }
+
+    public function channel(): string
+    {
+        return Arr::get($this->transaction->end_log,"parameters.mode");
     }
 }

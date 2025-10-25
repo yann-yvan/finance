@@ -28,6 +28,7 @@ class FinanceServiceProvider extends ServiceProvider
                 'CreateFinanceWalletsTable',
                 'CreateFinanceAccountsTable',
                 'AddSignatureVersionToFinanceTransactions',
+                'CreateFinanceLedgersTable',
             ];
 
             $migrations = [];
