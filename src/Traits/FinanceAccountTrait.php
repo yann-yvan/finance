@@ -130,7 +130,7 @@ trait FinanceAccountTrait
         );
     }
 
-    public function getCurrency()
+    public function getCurrency(): string
     {
         return ConfigReader::getDefaultCurrency();
     }
@@ -187,7 +187,7 @@ trait FinanceAccountTrait
         return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT);
     }
 
-    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement, ?string $fromWalletId = null): JsonResponse
+    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement, ?string $fromWalletId = null, ?string $providerCurrency = null): JsonResponse
     {
         if ($amount === 0.0) {
             Log::warning("Useless transaction of amount $amount for $description");
@@ -196,6 +196,7 @@ trait FinanceAccountTrait
 
         $request = new Request([
             'provider_id' => $providerId,
+            'provider_currency' => $providerCurrency,
             FinanceTransaction::AMOUNT => ExchangeRate::round($amount), # This to avoid tempered with in transaction in start signature
             FinanceTransaction::CURRENCY => $currency ?? $this->getCurrency(),
             FinanceTransaction::DESCRIPTION => $description,
@@ -261,14 +262,14 @@ trait FinanceAccountTrait
         }
     }
 
-    public function debit(string $providerId, float $amount, string $description, ?string $currency = null): DefResponse
+    public function debit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $providerCurrency = null): DefResponse
     {
-        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT));
+        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, null, $providerCurrency));
     }
 
-    public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null): DefResponse
+    public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null, ?string $providerCurrency = null): DefResponse
     {
-        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet));
+        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet, $providerCurrency));
     }
 
     public function setThreshold(float $minBalance): FinanceAccount

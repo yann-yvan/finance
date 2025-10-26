@@ -17,6 +17,7 @@ return new class extends Migration {
         Schema::create('finance_ledgers', static function (Blueprint $table) {
             $table->string('id')->primary();  // Primary key for the wallet
             $table->string('name');  // NAME of the wallet (user, company, etc.)
+            $table->string('currency');  // NAME of the wallet (user, company, etc.)
             $table->string('owner_id');  // ID of the owner (user, company, etc.)
             $table->string('owner_type');  // Polymorphic type for the owner (e.g., 'User' or 'Company')
             $table->string('checksum');  // Checksum to verify the integrity of the row

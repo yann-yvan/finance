@@ -60,7 +60,8 @@ class FinanceTransactionController extends Controller
     private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT): JsonResponse
     {
         $rawAmount = $request->get("amount");
-        $currency = $request->get("currency", ConfigReader::getDefaultCurrency());
+        $currency = $request->get("currency") ?? ConfigReader::getDefaultCurrency();
+        $providerCurrency = $request->get("provider_currency") ?? $provider->toGateway()::getCurrency();
         $description = $request->get("description");
 
         try {
@@ -83,8 +84,8 @@ class FinanceTransactionController extends Controller
             $request = $request->merge([
                 'exchange_rate' => [
                     'from' => $currency,
-                    'to' => $provider->toGateway()::getCurrency(),
-                    'value' => ExchangeRate::make($currency)->getRate($provider->toGateway()::getCurrency())
+                    'to' => $providerCurrency,
+                    'value' => ExchangeRate::make($currency)->getRate($providerCurrency)
                 ]
             ]);
 

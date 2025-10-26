@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Traits\FinanceAccountTrait;
 
 /**
@@ -32,6 +33,7 @@ class FinanceLedger extends Model
 
     const ID = 'id';
     const NAME = 'name';
+    const CURRENCY = 'currency';
     const OWNER_ID = 'owner_id';
     const OWNER_TYPE = 'owner_type';
     const CHECKSUM = 'checksum';
@@ -49,6 +51,7 @@ class FinanceLedger extends Model
 
     protected $fillable = [
         self::NAME,
+        self::CURRENCY,
         self::OWNER_ID,
         self::OWNER_TYPE,
         self::CHECKSUM
@@ -65,6 +68,9 @@ class FinanceLedger extends Model
         // Automatically set the checksum when saving the model.
         static::saving(static function ($wallet) {
             $wallet->{self::CHECKSUM} = $wallet->calculateChecksum();
+            if ($wallet->{self::CURRENCY} === null) {
+                $wallet->{self::CURRENCY} = (new FinanceLedger())->getCurrency();
+            }
         });
     }
 
@@ -84,5 +90,10 @@ class FinanceLedger extends Model
 
         // Generate the checksum using SHA-256 or any other preferred hash algorithm
         return hash('sha256', implode('|', $data));
+    }
+
+    public function getCurrency(): string
+    {
+        return $this->{self::CURRENCY} ?? ConfigReader::getDefaultCurrency();
     }
 }

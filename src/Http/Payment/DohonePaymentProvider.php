@@ -119,6 +119,6 @@ class DohonePaymentProvider extends PaymentProviderGateway
 
     public function channel(): string
     {
-        return Arr::get($this->transaction->end_log,"parameters.mode");
+        return Arr::get($this->transaction->end_log,"parameters.mode","");
     }
 }

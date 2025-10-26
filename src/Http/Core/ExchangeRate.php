@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 class ExchangeRate
 {
     protected array $rates = [];
+    protected string $baseCurrency;
 
     public static function make(string $baseCurrency = null): static
     {
@@ -40,7 +41,8 @@ class ExchangeRate
             return $currencies;
         });
 
-        $instance->rates = Arr::get($currencies ?? [], 'rates');
+        $instance->rates = Arr::get($currencies ?? [], 'rates',[]);
+        $instance->baseCurrency = $currency;
         return $instance;
     }
 
@@ -70,7 +72,7 @@ class ExchangeRate
 
     public function getRate($currency): float
     {
-        return Arr::get($this->rates, $currency);
+        return $this->baseCurrency === $currency ? 1 : Arr::get($this->rates, $currency);
     }
 
 
