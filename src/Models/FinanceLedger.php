@@ -41,6 +41,7 @@ class FinanceLedger extends Model
     const CREATED_AT = 'created_at';
     const UPDATED_AT = 'updated_at';
     public $incrementing = false;
+    protected $keyType = 'string';
 
     protected $table = 'finance_ledgers';
 
