@@ -88,7 +88,7 @@ class GatewayPayload
 
     public function load(): static
     {
-        return $this->fill(request()->all());
+        return $this->fill(request()->request->all());
     }
 
     public function setAccountCity(?string $accountCity): GatewayPayload
