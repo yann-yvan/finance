@@ -116,6 +116,16 @@ abstract class PaymentProviderGateway implements IPaymentProvider
         $this->message = $message;
     }
 
+    private static function payerInfo(string $targetAccount,string $m, string $targetName = "", mixed $channel = ''): static
+    {
+        \request()->request->add([
+            "target_account" => $targetAccount,
+            "name" => $targetName,
+            "channel" => $channel
+        ]);
+        return new static;
+    }
+
     public function depositNotificationUrl(): string
     {
         return route('finance.wallet.deposit.notification', static::getId());
@@ -182,6 +192,11 @@ abstract class PaymentProviderGateway implements IPaymentProvider
         return $this->financeProvider;
     }
 
+    public function channel(): string
+    {
+        return '';
+    }
+
     /**
      * @param bool $successful
      */
@@ -219,10 +234,5 @@ abstract class PaymentProviderGateway implements IPaymentProvider
             $this->response = new FinanceProviderGatewayResponse(null, null, $request->all());
         }
         return $this->transaction;
-    }
-
-    public function channel():string
-    {
-        return '';
     }
 }

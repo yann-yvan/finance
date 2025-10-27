@@ -20,6 +20,7 @@ use NYCorp\Finance\Http\Core\ExchangeRate;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceTransaction;
+use NYCorp\Finance\Models\GatewayPayload;
 use Nycorp\LiteApi\Exceptions\LiteResponseException;
 use Nycorp\LiteApi\Models\ResponseCode;
 use Nycorp\LiteApi\Response\DefResponse;
@@ -283,5 +284,11 @@ trait FinanceAccountTrait
         );
 
         return $this->finance_account;
+    }
+
+    public function setGatewayPayload(GatewayPayload $payload): static
+    {
+        $payload->store();
+        return $this;
     }
 }

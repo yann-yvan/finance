@@ -10,8 +10,10 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
+use NYCorp\Finance\Models\GatewayPayload;
 
 class DohonePaymentProvider extends PaymentProviderGateway
 {
@@ -54,14 +56,16 @@ class DohonePaymentProvider extends PaymentProviderGateway
 
     public function withdrawal(FinanceTransaction $transaction): PaymentProviderGateway
     {
+        $payload = GatewayPayload::make()->load();
         $api = DohonePayOut::mobile()
             ->setAmount($transaction->getConvertedAmount(asInt: true))
-            ->setMethod(request()->get('mode'))
-            ->setPayerPhoneAccount(config("dohone.payOutPhoneAccount"))
-            ->setReceiverAccount(request()->get('receiver_phone'))
-            ->setReceiverCity(request()->get('receiver_city'))
-            ->setReceiverCountry(request()->get('receiver_country'))
-            ->setReceiverName(request()->get('receiver_name'));
+            ->setMethod($payload->getPaymentMethod())
+            ->setReceiverAccount($payload->getPhoneNumber())
+            ->setReceiverCity($payload->getAccountCity())
+            ->setTransactionID($transaction->id)
+            ->setReceiverCountry($payload->getAccountCountry())
+            ->setReceiverName($payload->getAccountName());
+
         $result = $api->post();
 
         $this->successful = $result->isSuccess();
@@ -70,7 +74,13 @@ class DohonePaymentProvider extends PaymentProviderGateway
         $this->response = new FinanceProviderGatewayResponse($transaction, $this->getWallet($transaction)->id, $result->getErrors(), $result->shouldVerifySMS(), $result->getPaymentUrl());
         if ($this->successful()) {
             $this->message = "Well Done";
-            $this->setExternalId($result->getMessage());
+            $ref = trim(Arr::last(explode("/", $result->getMessage())));
+            $this->setExternalId($ref);
+            \request()->request->add([
+                "response" => $result->getMessage(),
+                "mode" => $api->getMethod()
+            ]);
+            FinanceTransactionController::close($transaction);
         }
         return $this;
     }
@@ -119,6 +129,6 @@ class DohonePaymentProvider extends PaymentProviderGateway
 
     public function channel(): string
     {
-        return Arr::get($this->transaction->end_log,"parameters.mode","");
+        return Arr::get($this->transaction->end_log, "parameters.mode", "");
     }
 }
