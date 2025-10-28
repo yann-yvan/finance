@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 
 class GatewayPayload
 {
-    private const PREFIX = "#___";
+    private const PREFIX = "____";
     protected ?string $orderId = null;
     protected ?float $amount = null;
     protected ?string $accountNumber = null;
@@ -70,27 +70,6 @@ class GatewayPayload
         }
 
         return $data;
-    }
-
-    /**
-     * Return all fields as associative array
-     */
-    public function toArrays(): array
-    {
-        return [
-            'order_id' => $this->orderId,
-            'amount' => $this->amount,
-            'account_number' => $this->accountNumber,
-            'account_name' => $this->accountName,
-            'phone_number' => $this->phoneNumber,
-            'account_email' => $this->accountEmail,
-            'account_city' => $this->accountCity,
-            'account_country' => $this->accountCountry,
-            'reference' => $this->reference,
-            'payment_method' => $this->paymentMethod,
-            'provider_response' => $this->providerResponse,
-            'metadata' => $this->metadata,
-        ];
     }
 
     public function getOrderId(): ?string
