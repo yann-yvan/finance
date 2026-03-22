@@ -149,7 +149,7 @@ trait FinanceAccountTrait
     public function canMakeTransaction(): bool
     {
         if (empty($this->finance_account)) {
-            $this->balanceChecksum(false, $this->getCurrency());
+            $this->balanceChecksum(true, $this->getCurrency());
             $this->refresh();
         }
         return $this->finance_account->{FinanceAccount::IS_ACCOUNT_ACTIVE};
