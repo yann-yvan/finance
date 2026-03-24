@@ -36,17 +36,19 @@ class DohonePaymentProvider extends PaymentProviderGateway
 
     public function deposit(FinanceTransaction $transaction): PaymentProviderGateway
     {
+        $payload = GatewayPayload::make()->load();
         $api = DohonePayIn::payWithAPI()
             ->setAmount($transaction->getConvertedAmount(asInt: true))
-            ->setClientPhone(request()->get('phone'))
+            ->setClientPhone($payload->getPhoneNumber() ?? request()->get('phone'))
             #->setClientEmail(Finance::getFinanceAccount()->{config(Finance::FINANCE_CONFIG_NAME . ".user_email_field")})
             //->setClientName("$user->first_name $user->last_name")
             ->setCommandID($transaction->id)
             ->setNotifyPage($this->depositNotificationUrl())
             ->setOTPCode(request()->get('otp'))
             ->setDescription($transaction->description)
-            ->setMethod(request()->get('mode'));
+            ->setMethod($payload->getPaymentMethod() ?? request()->get('mode'));
         //$api->setClientID(auth()->id());
+
         $result = $api->get();
         $this->successful = $result->isSuccess();
         $this->message = $result->getMessage();
