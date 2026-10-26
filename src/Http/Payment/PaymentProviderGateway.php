@@ -14,8 +14,8 @@ use NYCorp\Finance\Models\FinanceProviderGatewayResponse;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\FinanceWallet;
 use NYCorp\Finance\Scope\InvalidWalletScope;
-use Nycorp\LiteApi\Exceptions\LiteResponseException;
-use Nycorp\LiteApi\Models\ResponseCode;
+use NYCorp\Finance\Exceptions\FinanceException;
+use NYCorp\Finance\Http\Response\ResponseCode;
 
 abstract class PaymentProviderGateway implements IPaymentProvider
 {
@@ -34,7 +34,7 @@ abstract class PaymentProviderGateway implements IPaymentProvider
     }
 
     /**
-     * @throws LiteResponseException
+     * @throws FinanceException
      */
     public static function load($id = null): PaymentProviderGateway
     {
@@ -55,7 +55,7 @@ abstract class PaymentProviderGateway implements IPaymentProvider
             }
         }
 
-        throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, message: 'Gateway Not Found');
+        throw new FinanceException(ResponseCode::REQUEST_NOT_FOUND, message: 'Gateway Not Found');
     }
 
     /**

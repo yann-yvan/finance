@@ -6,7 +6,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use NYCorp\Finance\Models\FinanceWallet;
-use Nycorp\LiteApi\Models\ResponseCode;
+use NYCorp\Finance\Http\Response\ResponseCode;
 
 
 class FinanceWalletController extends Controller
@@ -46,7 +46,7 @@ class FinanceWalletController extends Controller
             ];
             return $this->save($data);
         } catch (Exception   $exception) {
-            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
+            return self::financeResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
         }
     }
 

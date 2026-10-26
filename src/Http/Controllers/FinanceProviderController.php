@@ -8,18 +8,18 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Models\FinanceProvider;
-use Nycorp\LiteApi\Models\ResponseCode;
-use Nycorp\LiteApi\Traits\ApiResponseTrait;
+use NYCorp\Finance\Http\Response\ResponseCode;
+use NYCorp\Finance\Http\Response\FinanceResponder;
 
 class FinanceProviderController
 {
-    use ApiResponseTrait;
+    use FinanceResponder;
 
     public function providers(): JsonResponse
     {
         try {
             PaymentProviderGateway::register();
-            return self::liteResponse(code: ResponseCode::REQUEST_SUCCESS, data: FinanceProvider::where(FinanceProvider::IS_PUBLIC, true)->get([
+            return self::financeResponse(code: ResponseCode::REQUEST_SUCCESS, data: FinanceProvider::where(FinanceProvider::IS_PUBLIC, true)->get([
                 "assigned_id as provider_id",
                 FinanceProvider::NAME,
                 FinanceProvider::COLOR,
@@ -30,7 +30,7 @@ class FinanceProviderController
             ]));
         } catch (\Exception $exception) {
             Log::error('*Loading Payment Providers* with ' . $exception->getMessage());
-            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
+            return self::financeResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
         }
     }
 }

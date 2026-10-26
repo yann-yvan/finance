@@ -11,7 +11,7 @@ use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Tests\Fixtures\FakeGateway;
 use NYCorp\Finance\Tests\Fixtures\OfflineDohoneGateway;
 use NYCorp\Finance\Tests\TestCase;
-use Nycorp\LiteApi\Models\ResponseCode;
+use NYCorp\Finance\Http\Response\ResponseCode;
 
 class PaymentCallbackTest extends TestCase
 {

@@ -20,8 +20,8 @@ use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\FinanceWallet;
 use NYCorp\Finance\Scope\InvalidWalletScope;
-use Nycorp\LiteApi\Exceptions\LiteResponseException;
-use Nycorp\LiteApi\Models\ResponseCode;
+use NYCorp\Finance\Exceptions\FinanceException;
+use NYCorp\Finance\Http\Response\ResponseCode;
 
 class FinanceTransactionController extends Controller
 {
@@ -44,7 +44,7 @@ class FinanceTransactionController extends Controller
      * @param Model $accountable
      * @param string $movement
      * @return JsonResponse
-     * @throws LiteResponseException
+     * @throws FinanceException
      */
     public static function init(Request $request, Model $accountable, string $movement): JsonResponse
     {
@@ -70,11 +70,11 @@ class FinanceTransactionController extends Controller
 
         try {
             if (!$provider->isAvailable()) {
-                throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, "Provider unavailable");
+                throw new FinanceException(ResponseCode::REQUEST_NOT_FOUND, "Provider unavailable");
             }
 
             if (($financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT && !$provider->isDepositAvailable()) || ($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT && !$provider->isWithdrawalAvailable())) {
-                throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, "Provider $financeMovement Service Unavailable");
+                throw new FinanceException(ResponseCode::REQUEST_NOT_FOUND, "Provider $financeMovement Service Unavailable");
             }
 
             $amount = $financeMovement === FinanceTransaction::DEPOSIT_MOVEMENT ? abs($rawAmount) : -abs($rawAmount);
@@ -82,7 +82,7 @@ class FinanceTransactionController extends Controller
             //Check balance with the absolute value of the desire amount to withdrawal
             if (($financeMovement === FinanceTransaction::WITHDRAWAL_MOVEMENT) && !$this->hasEnoughBalance(abs($amount), $currency)) {
                 $positiveAmount = abs($amount);
-                throw new LiteResponseException(ResponseCode::REQUEST_VALIDATION_ERROR, "Not enough balance to withdraw $positiveAmount $currency please make a deposit !!");
+                throw new FinanceException(ResponseCode::REQUEST_VALIDATION_ERROR, "Not enough balance to withdraw $positiveAmount $currency please make a deposit !!");
             }
 
             # include exchange rate in logs for later use
@@ -102,11 +102,11 @@ class FinanceTransactionController extends Controller
                 FinanceTransaction::FINANCE_PROVIDER_ID => $provider->id,
             ];
             return $this->save($data);
-        } catch (LiteResponseException $exception) {
+        } catch (FinanceException $exception) {
             return $exception->toResponse();
         } catch (Exception   $exception) {
             Log::error('Error during transaction creation: ' . get_class($exception) . ' ' . $exception->getMessage());
-            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: 'Unable to init transaction');
+            return self::financeResponse(ResponseCode::REQUEST_FAILURE, message: 'Unable to init transaction');
         }
     }
 

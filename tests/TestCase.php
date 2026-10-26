@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use NYCorp\Finance\FinanceServiceProvider;
 use NYCorp\Finance\Http\Payment\DefaultPaymentProvider;
 use NYCorp\Finance\Http\Payment\DohonePaymentProvider;
+use NYCorp\Finance\Http\Response\LiteApiBridge;
 use NYCorp\Finance\Integrity\FinanceSchema;
 use NYCorp\Finance\Tests\Fixtures\FakeGateway;
 use NYCorp\Finance\Tests\Fixtures\Partner;
@@ -31,7 +32,10 @@ abstract class TestCase extends Orchestra
 
     protected function getPackageProviders($app): array
     {
-        return [LiteApiServiceProvider::class, FinanceServiceProvider::class];
+        // Without the bridge, lite-api is not loaded at all: the library must stand alone
+        return LiteApiBridge::enabled()
+            ? [LiteApiServiceProvider::class, FinanceServiceProvider::class]
+            : [FinanceServiceProvider::class];
     }
 
     protected function defineEnvironment($app): void

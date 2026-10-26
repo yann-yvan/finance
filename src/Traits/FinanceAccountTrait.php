@@ -24,15 +24,15 @@ use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceAuditLog;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\GatewayPayload;
-use Nycorp\LiteApi\Exceptions\LiteResponseException;
-use Nycorp\LiteApi\Models\ResponseCode;
-use Nycorp\LiteApi\Response\DefResponse;
-use Nycorp\LiteApi\Traits\ApiResponseTrait;
+use NYCorp\Finance\Exceptions\FinanceException;
+use NYCorp\Finance\Http\Response\ResponseCode;
+use NYCorp\Finance\Http\Response\DefResponse;
+use NYCorp\Finance\Http\Response\FinanceResponder;
 use Throwable;
 
 trait FinanceAccountTrait
 {
-    use ApiResponseTrait;
+    use FinanceResponder;
 
     public function getBalanceAttribute(): float
     {
@@ -220,7 +220,7 @@ trait FinanceAccountTrait
         $amount = ExchangeRate::round($amount); # This to avoid tempered with in transaction in start signature
         if ($amount == 0 && !$allowZeroAmount) {
             Log::warning("Useless transaction of amount $amount");
-            return self::liteResponse(ResponseCode::REQUEST_VALIDATION_ERROR, message: "Useless transaction of amount $amount");
+            return self::financeResponse(ResponseCode::REQUEST_VALIDATION_ERROR, message: "Useless transaction of amount $amount");
         }
 
         $request = new Request([
@@ -233,7 +233,7 @@ trait FinanceAccountTrait
 
         try {
             if (!$this->exists) {
-                throw new LiteResponseException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing record.");
+                throw new FinanceException(ResponseCode::REQUEST_NOT_AUTHORIZED, "This action can only be performed on an existing record.");
             }
 
             Log::debug("starting a $movement");
@@ -265,12 +265,12 @@ trait FinanceAccountTrait
                 FinanceTransactionController::close($transaction->fresh(), FinanceTransaction::STATE_FAILED, ['reason' => 'provider_refused', 'message' => $gateway->getMessage()]);
             }
 
-            return self::liteResponse($gateway->successful() ? ResponseCode::REQUEST_SUCCESS : ResponseCode::REQUEST_FAILURE, $gateway->getResponse()->toArray(), $gateway->getMessage());
+            return self::financeResponse($gateway->successful() ? ResponseCode::REQUEST_SUCCESS : ResponseCode::REQUEST_FAILURE, $gateway->getResponse()->toArray(), $gateway->getMessage());
         } catch (FinanceResponseException $exception) {
             return $exception->getResponse();
         } catch (Exception|Throwable $exception) {
             Log::error("Transaction $movement error occur with " . get_class($exception) . ': ' . $exception->getMessage());
-            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
+            return self::financeResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
         }
     }
 
@@ -290,7 +290,7 @@ trait FinanceAccountTrait
     public function transfer(Model $beneficiary, string $providerId, float $amount, string $description, ?string $currency = null): DefResponse
     {
         if (!in_array(FinanceAccountTrait::class, class_uses($beneficiary), true)) {
-            return DefResponse::parse(self::liteResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, message: "Beneficiary not using FinanceAccountTrait"));
+            return DefResponse::parse(self::financeResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, message: "Beneficiary not using FinanceAccountTrait"));
         }
 
         try {
@@ -300,14 +300,14 @@ trait FinanceAccountTrait
                 if ($debit->isSuccess()) {
                     $credit = $beneficiary->credit($providerId, $amount, $description, $currency, Arr::get($debit->getBody(), 'wallet'));
                     if (!$credit->isSuccess()) {
-                        throw new LiteResponseException(ResponseCode::REQUEST_EXCEPTION, $credit->getMessage());
+                        throw new FinanceException(ResponseCode::REQUEST_EXCEPTION, $credit->getMessage());
                     }
                     return $credit;
                 }
                 return $debit;
             });
         } catch (Exception|Throwable $exception) {
-            return DefResponse::parse(self::liteResponse(ResponseCode::REQUEST_EXCEPTION, message: $exception->getMessage()));
+            return DefResponse::parse(self::financeResponse(ResponseCode::REQUEST_EXCEPTION, message: $exception->getMessage()));
         }
     }
 

@@ -14,15 +14,15 @@ use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
 use NYCorp\Finance\Integrity\AuditTrail;
 use NYCorp\Finance\Models\FinanceAuditLog;
 use NYCorp\Finance\Models\FinanceTransaction;
-use Nycorp\LiteApi\Exceptions\LiteResponseException;
-use Nycorp\LiteApi\Models\ResponseCode;
-use Nycorp\LiteApi\Traits\ApiResponseTrait;
+use NYCorp\Finance\Exceptions\FinanceException;
+use NYCorp\Finance\Http\Response\ResponseCode;
+use NYCorp\Finance\Http\Response\FinanceResponder;
 use OpenApi\Annotations as OA;
 use Throwable;
 
 class FinanceController
 {
-    use ApiResponseTrait;
+    use FinanceResponder;
 
     public function depositNotification(string $provider, Request $request): JsonResponse
     {
@@ -46,7 +46,7 @@ class FinanceController
 
         try {
             $gateway = PaymentProviderGateway::load($provider);
-        } catch (LiteResponseException $exception) {
+        } catch (FinanceException $exception) {
             return $exception->toResponse();
         }
 
@@ -54,12 +54,12 @@ class FinanceController
             $gateway = $movement === FinanceTransaction::DEPOSIT_MOVEMENT ? $gateway->onDepositSuccess($request) : $gateway->onWithdrawalSuccess($request);
         } catch (Exception|Throwable $exception) {
             Log::error("Finance: $provider $movement callback failed: " . get_class($exception) . ' ' . $exception->getMessage());
-            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: 'Callback could not be processed');
+            return self::financeResponse(ResponseCode::REQUEST_FAILURE, message: 'Callback could not be processed');
         }
 
         $transaction = $gateway->getTransaction();
         if (!$transaction->exists) {
-            return self::liteResponse(ResponseCode::REQUEST_NOT_FOUND, message: 'Transaction not found');
+            return self::financeResponse(ResponseCode::REQUEST_NOT_FOUND, message: 'Transaction not found');
         }
 
         $rejection = $gateway->ownsTransaction() ? $gateway->getRejectionReason() : 'transaction belongs to another provider';
@@ -70,7 +70,7 @@ class FinanceController
                 'movement' => $movement,
                 'reason' => $rejection,
             ]);
-            return self::liteResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, self::summary($transaction), 'Callback rejected');
+            return self::financeResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, self::summary($transaction), 'Callback rejected');
         }
 
         if ($transaction->getOriginal(FinanceTransaction::IS_LOCKED)) {
@@ -83,7 +83,7 @@ class FinanceController
                     'reason' => 'success_on_finalized_transaction',
                 ]);
             }
-            return self::liteResponse(ResponseCode::REQUEST_SUCCESS, self::summary($transaction), 'Transaction already finalized');
+            return self::financeResponse(ResponseCode::REQUEST_SUCCESS, self::summary($transaction), 'Transaction already finalized');
         }
 
         $state = $gateway->resolveState();
@@ -92,7 +92,7 @@ class FinanceController
             $transaction->refresh();
         }
 
-        return self::liteResponse(ResponseCode::REQUEST_SUCCESS, self::summary($transaction), $state === null ? 'Transaction still pending' : null);
+        return self::financeResponse(ResponseCode::REQUEST_SUCCESS, self::summary($transaction), $state === null ? 'Transaction still pending' : null);
     }
 
     private static function summary(FinanceTransaction $transaction): array
@@ -148,7 +148,7 @@ class FinanceController
             'phone' => ['required', 'string', 'max:20'],
         ]);
         if ($validator->fails()) {
-            return self::liteResponse(ResponseCode::REQUEST_VALIDATION_ERROR, message: $validator->errors()->first());
+            return self::financeResponse(ResponseCode::REQUEST_VALIDATION_ERROR, message: $validator->errors()->first());
         }
 
         return response()->json((new DohonePaymentProvider())->SMSConfirmation($request->code, $request->phone));

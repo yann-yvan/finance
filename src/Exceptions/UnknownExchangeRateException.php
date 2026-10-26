@@ -2,10 +2,9 @@
 
 namespace NYCorp\Finance\Exceptions;
 
-use Nycorp\LiteApi\Exceptions\LiteResponseException;
-use Nycorp\LiteApi\Models\ResponseCode;
+use NYCorp\Finance\Http\Response\ResponseCode;
 
-class UnknownExchangeRateException extends LiteResponseException
+class UnknownExchangeRateException extends FinanceException
 {
     public function __construct(string $from, string $to)
     {

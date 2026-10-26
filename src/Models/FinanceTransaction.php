@@ -18,7 +18,7 @@ use NYCorp\Finance\Integrity\AuditTrail;
 use NYCorp\Finance\Integrity\FinanceSchema;
 use NYCorp\Finance\Integrity\HashChain;
 use NYCorp\Finance\Integrity\Signer;
-use Nycorp\LiteApi\Models\ResponseCode;
+use NYCorp\Finance\Http\Response\ResponseCode;
 
 /**
  * Class FinanceTransaction
