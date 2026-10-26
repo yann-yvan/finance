@@ -36,6 +36,14 @@ php artisan migrate
 Get exchange rate API KEY of [https://api.exchangeratesapi.io](https://api.exchangeratesapi.io) and set in .env
 ```env
 EXCHANGE_RATE_API_KEY=<api key>
+# optional, defaults to https://api.exchangeratesapi.io/v1/latest
+EXCHANGE_RATE_API_URL=
+```
+
+Set a dedicated signing key (see [Integrity](#integrity))
+```env
+FINANCE_SIGNATURE_KEY_ID=k1
+FINANCE_SIGNATURE_KEY=base64:...   # php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
 ```
 
 ## Usage
@@ -88,6 +96,12 @@ public function getCurrency()
         // Implement your logic to get currency here the default value is set in the finance config file
         return \NYCorp\Finance\Http\Core\ConfigReader::getDefaultCurrency();
     }
+```
+
+Zero amounts are refused, unless explicitly allowed (e.g. to record a plan granted for free)
+
+```php
+return User::first()->credit(DefaultPaymentProvider::getId(), 0, 'Pro plan granted', allowZeroAmount: true)
 ```
 
 Check if user can make transaction if his finance account is not disabled
@@ -173,11 +187,23 @@ class CustomPaymentProvider extends PaymentProviderGateway
 
     public function onDepositSuccess(Request $request): PaymentProviderGateway
     {
-        Log::debug("**Payment** | " . self::getId() . ": callback " . $request->cpm_trans_id, $request->all());
-        
         # For example here the transaction id is inside the cpm_trans_id in your case it maybe another value
         if ($this->findTransaction($request, 'cpm_trans_id') === null) {
+            return $this; // answered "not found", nothing changes
+        }
+
+        if (!hash_equals($this->expectedSignature($request), (string)$request->get('signature'))) {
+            $this->rejectCallback('invalid signature'); // the transaction stays PENDING
             return $this;
+        }
+
+        match ($request->get('status')) {
+            'ACCEPTED' => $this->successful = true,
+            'REFUSED' => $this->markDefinitiveFailure(), // closes the transaction as FAILED
+            default => null,                             // still pending: nothing changes
+        };
+        if ($this->successful()) {
+            $this->setExternalId($request->get('operator_id')); // COMPLETED needs success AND a reference
         }
 
         return $this;
@@ -187,22 +213,13 @@ class CustomPaymentProvider extends PaymentProviderGateway
     {
         return $this;
     }
-
-    protected function findTransaction(Request $request, string $key): ?FinanceTransaction
-    {
-        $transactionId = Arr::get($request->all(), $key);
-        $this->transaction = FinanceTransaction::find($transactionId);
-        if (empty($this->transaction)) {
-            $id = self::getId();
-            Log::error("**Payment** | $id : order not found $transactionId");
-            $this->message = "Order not found !";
-            $this->successful = false;
-            $this->response = new FinanceProviderGatewayResponse(null, null, $request->all());
-        }
-        return $this->transaction;
-    }
 }
 ```
+
+The notification controller only applies the provider's verdict (`resolveState()`): a success with an external id
+completes the transaction, `markDefinitiveFailure()` fails it, anything else leaves it PENDING, and a callback rejected,
+for an unknown transaction or for another provider's transaction changes nothing. Repeated callbacks are idempotent.
+Do not log `$request->all()`: callbacks carry personal data.
 
 ## Register provider in config
 
@@ -228,6 +245,42 @@ return [
 ];
 ```
 
+
+## Integrity
+
+Every money movement is tamper-evident:
+
+* **Signature v3**: transactions (start signature + checksum), wallets and ledgers are signed with HMAC-SHA256 and
+  the key `FINANCE_SIGNATURE_KEY`, stored as `v3:{keyId}:{hmac}`. Without the key, nobody with database access can
+  recompute them. Rows signed by older versions (v1, v2) are still verified. Without a key the library keeps the
+  unkeyed v2 hashes.
+* **Key rotation**: give the new key a new `FINANCE_SIGNATURE_KEY_ID` and keep the old one in
+  `FINANCE_SIGNATURE_PREVIOUS_KEYS=k1:base64:...`.
+* **Hash chain** (`finance_chain_entries`): each finalized transaction is appended to its owner's chain, each entry
+  signing the previous one. A deleted, inserted or modified entry breaks the chain; sealed transactions cannot be deleted.
+* **Audit log** (`finance_audit_logs`): signed, append-only rows for finalizations, rejected callbacks, balance
+  recalculations and threshold changes, with the actor and the context (route or command).
+* Finalization (state, checksum, lock, chain entry, audit row, balance increment) is one database transaction; a debit
+  locks the account and reserves the pending debits of the last `FINANCE_PENDING_RESERVATION_TTL` minutes.
+
+Commands:
+
+```shell
+php artisan finance:verify-integrity            # exit code 1 on any error; --fix-balances, --json
+php artisan finance:seal-history                # once after upgrading: seal the transactions finalized before the chain
+php artisan finance:expire-pending --minutes=10080   # cancel transactions a provider never answered
+```
+
+Upgrading to 1.5: publish and run the two new migrations, set the key, run `finance:seal-history`, restart the queue
+workers, then schedule `finance:verify-integrity`.
+
+## Tests
+
+```shell
+composer install
+vendor/bin/phpunit                    # SQLite in memory
+FINANCE_TEST_DB=mysql FINANCE_TEST_DB_DATABASE=<throw-away db> FINANCE_TEST_DB_PASSWORD=... vendor/bin/phpunit
+```
 
 ## Response handle
 
