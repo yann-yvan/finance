@@ -34,6 +34,8 @@ class FinanceServiceProvider extends ServiceProvider
             'create_finance_ledgers_table',
             'create_finance_chain_entries_table',
             'create_finance_audit_logs_table',
+            'add_display_to_finance_transactions',
+            'create_finance_transaction_tags_table',
         ];
     }
 

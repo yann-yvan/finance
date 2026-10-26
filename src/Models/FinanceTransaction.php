@@ -5,12 +5,15 @@ namespace NYCorp\Finance\Models;
 
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use NYCorp\Finance\Exceptions\CompromisedTransactionException;
+use NYCorp\Finance\Exceptions\FinanceException;
 use NYCorp\Finance\Exceptions\LockedTransactionException;
 use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Core\ExchangeRate;
@@ -32,6 +35,7 @@ use NYCorp\Finance\Http\Response\ResponseCode;
  * @property string|null $external_id
  * @property string $start_signature
  * @property string $description
+ * @property array|null $display {"key": translation key, "params": {...}}
  * @property bool $is_locked
  * @property string|null $checksum
  * @property string $state
@@ -67,6 +71,7 @@ class FinanceTransaction extends Model
     public const EXTERNAL_ID = 'external_id';
     public const START_SIGNATURE = 'start_signature';
     public const DESCRIPTION = 'description';
+    public const DISPLAY = 'display';
     public const IS_LOCKED = 'is_locked';
     public const STATE = 'state';
     public const CHECKSUM = 'checksum';
@@ -97,6 +102,7 @@ class FinanceTransaction extends Model
         self::START_SIGNATURE,
         self::CURRENCY,
         self::DESCRIPTION,
+        self::DISPLAY,
         self::STATE,
         self::SIGNATURE_VERSION,
         self::FINANCE_PROVIDER_ID,
@@ -110,6 +116,7 @@ class FinanceTransaction extends Model
         self::VERIFY_AT => 'datetime',
         self::START_LOG => 'json',
         self::END_LOG => 'json',
+        self::DISPLAY => 'json',
     ];
 
     /**
@@ -208,6 +215,7 @@ class FinanceTransaction extends Model
             $this->{self::CURRENCY},
             $this->{self::DESCRIPTION},
             $this->{self::FINANCE_PROVIDER_ID},
+            $this->{self::DISPLAY},
             3,
         ];
     }
@@ -370,6 +378,139 @@ class FinanceTransaction extends Model
         }
 
         return is_string($this->{self::CHECKSUM}) && hash_equals($this->calculateChecksum(), $this->{self::CHECKSUM});
+    }
+
+    /**
+     * Validate and normalize a public description: ['key' => translation key, 'params' => [name => scalar]].
+     *
+     * @throws FinanceException
+     */
+    public static function normalizeDisplay(?array $display): ?array
+    {
+        if ($display === null) {
+            return null;
+        }
+
+        $key = $display['key'] ?? null;
+        if (!is_string($key) || trim($key) === '' || mb_strlen($key) > 191) {
+            throw new FinanceException(ResponseCode::REQUEST_VALIDATION_ERROR, 'The display key must be a non-empty string of at most 191 characters');
+        }
+
+        $params = $display['params'] ?? [];
+        if (!is_array($params)) {
+            throw new FinanceException(ResponseCode::REQUEST_VALIDATION_ERROR, 'The display params must be an array');
+        }
+        foreach ($params as $name => $value) {
+            if (!is_string($name) || !(is_scalar($value) || $value === null)) {
+                throw new FinanceException(ResponseCode::REQUEST_VALIDATION_ERROR, 'The display params must be named scalar values');
+            }
+        }
+
+        return ['key' => trim($key), 'params' => $params];
+    }
+
+    public function displayKey(): ?string
+    {
+        return $this->{self::DISPLAY}['key'] ?? null;
+    }
+
+    public function displayParams(): array
+    {
+        return $this->{self::DISPLAY}['params'] ?? [];
+    }
+
+    /**
+     * Public text, translated with the host application's lang files; falls back to the technical description.
+     */
+    public function describe(?string $locale = null): string
+    {
+        $key = $this->displayKey();
+        if ($key === null) {
+            return (string)$this->{self::DESCRIPTION};
+        }
+
+        $text = trans($key, $this->displayParams(), $locale);
+        return is_string($text) && $text !== $key ? $text : (string)$this->{self::DESCRIPTION};
+    }
+
+    public function tags(): HasMany
+    {
+        return $this->hasMany(FinanceTransactionTag::class, FinanceTransactionTag::FINANCE_TRANSACTION_ID);
+    }
+
+    /**
+     * Add tags (also on a finalized transaction: tags are for search, not part of any signature).
+     *
+     * @throws FinanceException on an invalid tag
+     */
+    public function tag(array|string ...$tags): static
+    {
+        $tags = FinanceTransactionTag::normalize(array_merge(...array_map(static fn($tag) => (array)$tag, $tags)));
+        if (empty($tags) || !FinanceSchema::hasTable('finance_transaction_tags')) {
+            return $this;
+        }
+
+        $now = now();
+        FinanceTransactionTag::insertOrIgnore(array_map(fn($tag) => [
+            FinanceTransactionTag::FINANCE_TRANSACTION_ID => $this->getKey(),
+            FinanceTransactionTag::TAG => $tag,
+            FinanceTransactionTag::CREATED_AT => $now,
+        ], $tags));
+        $this->unsetRelation('tags');
+
+        return $this;
+    }
+
+    public function untag(array|string ...$tags): static
+    {
+        $tags = FinanceTransactionTag::normalize(array_merge(...array_map(static fn($tag) => (array)$tag, $tags)));
+        if (!empty($tags) && FinanceSchema::hasTable('finance_transaction_tags')) {
+            $this->tags()->whereIn(FinanceTransactionTag::TAG, $tags)->delete();
+            $this->unsetRelation('tags');
+        }
+        return $this;
+    }
+
+    public function tagList(): array
+    {
+        return $this->tags->pluck(FinanceTransactionTag::TAG)->sort()->values()->all();
+    }
+
+    /**
+     * Transactions carrying all the given tags
+     */
+    public function scopeTagged(Builder $query, array|string ...$tags): Builder
+    {
+        $tags = FinanceTransactionTag::normalize(array_merge(...array_map(static fn($tag) => (array)$tag, $tags)));
+        if (empty($tags)) {
+            return $query;
+        }
+
+        return $query->whereIn($this->qualifyColumn(self::ID), static function ($sub) use ($tags) {
+            $sub->select(FinanceTransactionTag::FINANCE_TRANSACTION_ID)
+                ->from('finance_transaction_tags')
+                ->whereIn(FinanceTransactionTag::TAG, $tags)
+                ->groupBy(FinanceTransactionTag::FINANCE_TRANSACTION_ID)
+                ->havingRaw('COUNT(DISTINCT ' . FinanceTransactionTag::TAG . ') = ?', [count($tags)]);
+        });
+    }
+
+    /**
+     * Transactions carrying at least one of the given tags
+     */
+    public function scopeTaggedAny(Builder $query, array|string ...$tags): Builder
+    {
+        $tags = FinanceTransactionTag::normalize(array_merge(...array_map(static fn($tag) => (array)$tag, $tags)));
+        if (empty($tags)) {
+            return $query;
+        }
+
+        return $query->whereExists(function ($sub) use ($tags) {
+            $sub->selectRaw(1)
+                ->from('finance_transaction_tags')
+                ->whereColumn('finance_transaction_tags.' . FinanceTransactionTag::FINANCE_TRANSACTION_ID, $this->qualifyColumn(self::ID))
+                ->whereIn('finance_transaction_tags.' . FinanceTransactionTag::TAG, $tags);
+        });
     }
 
     public function financeProvider(): BelongsTo

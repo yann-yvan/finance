@@ -270,11 +270,13 @@ class IntegrityTest extends TestCase
         DB::unprepared('DROP TRIGGER IF EXISTS prevent_delete_finance_chain_entries');
         Schema::drop('finance_chain_entries');
         Schema::drop('finance_audit_logs');
+        Schema::drop('finance_transaction_tags');
+        Schema::table('finance_transactions', fn($table) => $table->dropColumn('display'));
         FinanceSchema::flush();
         config()->set('finance.signature.key', null);
 
         $user = $this->user();
-        $this->assertTrue($user->credit(DefaultPaymentProvider::getId(), 10, 'top up')->isSuccess());
+        $this->assertTrue($user->credit(DefaultPaymentProvider::getId(), 10, 'top up', display: ['key' => 'k'], tags: ['t'])->isSuccess());
         $this->assertTrue($user->debit(DefaultPaymentProvider::getId(), 4, 'usage')->isSuccess());
         $user->setThreshold(0);
 

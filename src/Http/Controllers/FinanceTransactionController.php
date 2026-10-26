@@ -15,6 +15,7 @@ use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Core\ExchangeRate;
 use NYCorp\Finance\Http\Core\HttpLog;
 use NYCorp\Finance\Http\Payment\PaymentProviderGateway;
+use NYCorp\Finance\Integrity\FinanceSchema;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceTransaction;
@@ -46,9 +47,9 @@ class FinanceTransactionController extends Controller
      * @return JsonResponse
      * @throws FinanceException
      */
-    public static function init(Request $request, Model $accountable, string $movement): JsonResponse
+    public static function init(Request $request, Model $accountable, string $movement, ?array $display = null): JsonResponse
     {
-        return (new FinanceTransactionController($accountable))->store($request, PaymentProviderGateway::load($request->get("provider_id"))->getFinanceProvider(), $movement);
+        return (new FinanceTransactionController($accountable))->store($request, PaymentProviderGateway::load($request->get("provider_id"))->getFinanceProvider(), $movement, $display);
     }
 
     /**
@@ -61,7 +62,7 @@ class FinanceTransactionController extends Controller
      * @return JsonResponse
      * @throws Exception
      */
-    private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT): JsonResponse
+    private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT, ?array $display = null): JsonResponse
     {
         $rawAmount        = $request->get("amount");
         $currency         = $request->get("currency") ?? ConfigReader::getDefaultCurrency();
@@ -101,6 +102,13 @@ class FinanceTransactionController extends Controller
                 FinanceTransaction::START_LOG           => self::getHttpLog($request),
                 FinanceTransaction::FINANCE_PROVIDER_ID => $provider->id,
             ];
+            if ($display !== null) {
+                if (FinanceSchema::hasColumn('finance_transactions', FinanceTransaction::DISPLAY)) {
+                    $data[FinanceTransaction::DISPLAY] = $display;
+                } else {
+                    Log::warning('Finance: display ignored, run the finance migrations to store it');
+                }
+            }
             return $this->save($data);
         } catch (FinanceException $exception) {
             return $exception->toResponse();

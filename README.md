@@ -14,10 +14,9 @@
 ```shell
 composer require nycorp/finance
 ```
-Then
-```shell
-composer require nycorp/lite-api
-```
+`nycorp/lite-api` is no longer required. When lite-api 1.x is installed, the finance responses (`DefResponse`) and
+exceptions (`FinanceException`) extend the lite-api ones, so code typed against lite-api keeps working; set
+`FINANCE_LITE_API_BRIDGE=0` to turn that off.
 
 #### Configuration
 
@@ -103,6 +102,22 @@ Zero amounts are refused, unless explicitly allowed (e.g. to record a plan grant
 ```php
 return User::first()->credit(DefaultPaymentProvider::getId(), 0, 'Pro plan granted', allowZeroAmount: true)
 ```
+
+Public, translatable description and search tags (optional on credit, debit, deposit, withdrawal and transfer)
+
+```php
+$user->credit(DefaultPaymentProvider::getId(), 9.99, 'plan Pro #42 (internal)',
+    display: ['key' => 'subscription.payment', 'params' => ['plan' => 'Pro', 'from' => '2026-11-01']],
+    tags: ['plan:pro', 'invoice:FAC-001']);
+
+$transaction->describe();        // __('subscription.payment', [...]) from your lang files, else the description
+$transaction->tag('campaign:CMP-12');   // tags can be added later, even on a finalized transaction
+FinanceTransaction::tagged('plan:pro', 'invoice:FAC-001')->get();   // all the tags
+FinanceTransaction::taggedAny('merchant:eneo', 'merchant:camwater')->get();   // any of them
+```
+
+`display` stores the key and its parameters, never the text, and is part of the v3 signature; tags live in an indexed
+table and are not signed (they are for search, not proof).
 
 Check if user can make transaction if his finance account is not disabled
 
@@ -271,7 +286,7 @@ php artisan finance:seal-history                # once after upgrading: seal the
 php artisan finance:expire-pending --minutes=10080   # cancel transactions a provider never answered
 ```
 
-Upgrading to 1.5: publish and run the two new migrations, set the key, run `finance:seal-history`, restart the queue
+Upgrading to 1.5: publish and run the four new migrations, set the key, run `finance:seal-history`, restart the queue
 workers, then schedule `finance:verify-integrity`.
 
 ## Tests

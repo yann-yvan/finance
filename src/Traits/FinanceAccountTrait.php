@@ -23,6 +23,7 @@ use NYCorp\Finance\Integrity\AuditTrail;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceAuditLog;
 use NYCorp\Finance\Models\FinanceTransaction;
+use NYCorp\Finance\Models\FinanceTransactionTag;
 use NYCorp\Finance\Models\GatewayPayload;
 use NYCorp\Finance\Exceptions\FinanceException;
 use NYCorp\Finance\Http\Response\ResponseCode;
@@ -207,16 +208,25 @@ trait FinanceAccountTrait
      * @return JsonResponse
      * @deprecated Use credit() instead
      */
-    public function deposit(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false): JsonResponse
+    public function deposit(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): JsonResponse
     {
-        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, allowZeroAmount: $allowZeroAmount);
+        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, allowZeroAmount: $allowZeroAmount, display: $display, tags: $tags);
     }
 
     /**
      * @param bool $allowZeroAmount a 0 amount is refused unless explicitly allowed, e.g. to record a plan granted for free
+     * @param array|null $display public description: ['key' => translation key, 'params' => [...]], signed with the transaction
+     * @param array $tags search tags (e.g. "campaign:CMP-12"), not signed, can be added later with FinanceTransaction::tag()
      */
-    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement, ?string $fromWalletId = null, ?string $providerCurrency = null, bool $allowZeroAmount = false): JsonResponse
+    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement, ?string $fromWalletId = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): JsonResponse
     {
+        try {
+            $display = FinanceTransaction::normalizeDisplay($display);
+            $tags = FinanceTransactionTag::normalize($tags);
+        } catch (FinanceException $exception) {
+            return $exception->toResponse();
+        }
+
         $amount = ExchangeRate::round($amount); # This to avoid tempered with in transaction in start signature
         if ($amount == 0 && !$allowZeroAmount) {
             Log::warning("Useless transaction of amount $amount");
@@ -239,8 +249,8 @@ trait FinanceAccountTrait
             Log::debug("starting a $movement");
 
             // Transaction + wallet are created together (no orphan), under the account lock taken by the balance check
-            $transaction = DB::transaction(function () use ($request, $movement, $fromWalletId) {
-                $transactionResponse = new DefResponse(FinanceTransactionController::init($request, $this, $movement));
+            $transaction = DB::transaction(function () use ($request, $movement, $fromWalletId, $display, $tags) {
+                $transactionResponse = new DefResponse(FinanceTransactionController::init($request, $this, $movement, $display));
                 if (!$transactionResponse->isSuccess()) {
                     throw new FinanceResponseException($transactionResponse->getResponse());
                 }
@@ -250,7 +260,7 @@ trait FinanceAccountTrait
                     throw new FinanceResponseException($walletResponse->getResponse());
                 }
 
-                return FinanceTransaction::findOrFail($transactionResponse->getData()["id"]);
+                return FinanceTransaction::findOrFail($transactionResponse->getData()["id"])->tag($tags);
             });
 
             try {
@@ -282,12 +292,12 @@ trait FinanceAccountTrait
      * @return JsonResponse
      * @deprecated Use debit() instead
      */
-    public function withdrawal(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false): JsonResponse
+    public function withdrawal(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): JsonResponse
     {
-        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, allowZeroAmount: $allowZeroAmount);
+        return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, allowZeroAmount: $allowZeroAmount, display: $display, tags: $tags);
     }
 
-    public function transfer(Model $beneficiary, string $providerId, float $amount, string $description, ?string $currency = null): DefResponse
+    public function transfer(Model $beneficiary, string $providerId, float $amount, string $description, ?string $currency = null, ?array $display = null, array $tags = []): DefResponse
     {
         if (!in_array(FinanceAccountTrait::class, class_uses($beneficiary), true)) {
             return DefResponse::parse(self::financeResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, message: "Beneficiary not using FinanceAccountTrait"));
@@ -295,10 +305,10 @@ trait FinanceAccountTrait
 
         try {
             Log::debug("starting a transfer");
-            return DB::transaction(function () use ($beneficiary, $currency, $description, $amount, $providerId) {
-                $debit = $this->debit($providerId, $amount, $description, $currency);
+            return DB::transaction(function () use ($beneficiary, $currency, $description, $amount, $providerId, $display, $tags) {
+                $debit = $this->debit($providerId, $amount, $description, $currency, display: $display, tags: $tags);
                 if ($debit->isSuccess()) {
-                    $credit = $beneficiary->credit($providerId, $amount, $description, $currency, Arr::get($debit->getBody(), 'wallet'));
+                    $credit = $beneficiary->credit($providerId, $amount, $description, $currency, Arr::get($debit->getBody(), 'wallet'), display: $display, tags: $tags);
                     if (!$credit->isSuccess()) {
                         throw new FinanceException(ResponseCode::REQUEST_EXCEPTION, $credit->getMessage());
                     }
@@ -311,14 +321,14 @@ trait FinanceAccountTrait
         }
     }
 
-    public function debit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $providerCurrency = null, bool $allowZeroAmount = false): DefResponse
+    public function debit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): DefResponse
     {
-        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, null, $providerCurrency, $allowZeroAmount));
+        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, null, $providerCurrency, $allowZeroAmount, $display, $tags));
     }
 
-    public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null, ?string $providerCurrency = null, bool $allowZeroAmount = false): DefResponse
+    public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): DefResponse
     {
-        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet, $providerCurrency, $allowZeroAmount));
+        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet, $providerCurrency, $allowZeroAmount, $display, $tags));
     }
 
     public function setThreshold(float $minBalance): FinanceAccount
