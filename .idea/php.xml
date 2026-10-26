@@ -95,18 +95,13 @@
       <path value="$PROJECT_DIR$/vendor/lcobucci/jwt" />
       <path value="$PROJECT_DIR$/vendor/doctrine/annotations" />
       <path value="$PROJECT_DIR$/vendor/doctrine/deprecations" />
-      <path value="$PROJECT_DIR$/vendor/marcj/topsort" />
       <path value="$PROJECT_DIR$/vendor/dcarbone/gohttp" />
       <path value="$PROJECT_DIR$/vendor/dcarbone/php-consul-api" />
       <path value="$PROJECT_DIR$/vendor/dcarbone/gotime" />
       <path value="$PROJECT_DIR$/vendor/darkaonline/l5-swagger" />
       <path value="$PROJECT_DIR$/vendor/tymon/jwt-auth" />
       <path value="$PROJECT_DIR$/vendor/swagger-api/swagger-ui" />
-      <path value="$PROJECT_DIR$/vendor/bennett-treptow/laravel-migration-generator" />
       <path value="$PROJECT_DIR$/vendor/zircote/swagger-php" />
-      <path value="$PROJECT_DIR$/vendor/myclabs/php-enum" />
-      <path value="$PROJECT_DIR$/vendor/netflie/laravel-notification-whatsapp" />
-      <path value="$PROJECT_DIR$/vendor/netflie/whatsapp-cloud-api" />
       <path value="$PROJECT_DIR$/vendor/nycorp/lite-api" />
       <path value="$PROJECT_DIR$/vendor/psr/cache" />
       <path value="$PROJECT_DIR$/vendor/reliese/laravel" />
@@ -166,6 +161,7 @@
       <path value="$PROJECT_DIR$/vendor/nunomaduro/collision" />
       <path value="$PROJECT_DIR$/vendor/spatie/ray" />
       <path value="$PROJECT_DIR$/vendor/hamcrest/hamcrest-php" />
+      <path value="$PROJECT_DIR$/vendor/_laravel_idea" />
     </include_path>
   </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.0" />

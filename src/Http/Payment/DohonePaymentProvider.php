@@ -40,14 +40,13 @@ class DohonePaymentProvider extends PaymentProviderGateway
         $api = DohonePayIn::payWithAPI()
             ->setAmount($transaction->getConvertedAmount(asInt: true))
             ->setClientPhone($payload->getPhoneNumber() ?? request()->get('phone'))
-            #->setClientEmail(Finance::getFinanceAccount()->{config(Finance::FINANCE_CONFIG_NAME . ".user_email_field")})
-            //->setClientName("$user->first_name $user->last_name")
+            ->setClientName($payload->getAccountName())
+            ->setClientEmail($payload->getAccountEmail())
             ->setCommandID($transaction->id)
             ->setNotifyPage($this->depositNotificationUrl())
-            ->setOTPCode(request()->get('otp'))
+            ->setOTPCode(request()->get('otp')??12345)
             ->setDescription($transaction->description)
             ->setMethod($payload->getPaymentMethod() ?? request()->get('mode'));
-        //$api->setClientID(auth()->id());
 
         $result = $api->get();
         $this->successful = $result->isSuccess();

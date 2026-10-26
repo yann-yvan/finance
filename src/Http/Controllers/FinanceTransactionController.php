@@ -59,10 +59,10 @@ class FinanceTransactionController extends Controller
      */
     private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT): JsonResponse
     {
-        $rawAmount = $request->get("amount");
-        $currency = $request->get("currency") ?? ConfigReader::getDefaultCurrency();
+        $rawAmount        = $request->get("amount");
+        $currency         = $request->get("currency") ?? ConfigReader::getDefaultCurrency();
         $providerCurrency = $request->get("provider_currency") ?? $provider->toGateway()::getCurrency();
-        $description = $request->get("description");
+        $description      = $request->get("description");
 
         try {
             if (!$provider->isAvailable()) {
@@ -84,17 +84,17 @@ class FinanceTransactionController extends Controller
             # include exchange rate in logs for later use
             $request = $request->merge([
                 'exchange_rate' => [
-                    'from' => $currency,
-                    'to' => $providerCurrency,
+                    'from'  => $currency,
+                    'to'    => $providerCurrency,
                     'value' => ExchangeRate::make($currency)->getRate($providerCurrency)
                 ]
             ]);
 
             $data = [
-                FinanceTransaction::AMOUNT => $amount,
-                FinanceTransaction::CURRENCY => $currency,
-                FinanceTransaction::DESCRIPTION => $description,
-                FinanceTransaction::START_LOG => self::getHttpLog($request),
+                FinanceTransaction::AMOUNT              => $amount,
+                FinanceTransaction::CURRENCY            => $currency,
+                FinanceTransaction::DESCRIPTION         => $description,
+                FinanceTransaction::START_LOG           => self::getHttpLog($request),
                 FinanceTransaction::FINANCE_PROVIDER_ID => $provider->id,
             ];
             return $this->save($data);
@@ -116,8 +116,8 @@ class FinanceTransactionController extends Controller
     {
         return [
             "parameters" => $request->all(),
-            "hosts" => $request->getHost(),
-            "ips" => $request->ips(),
+            "hosts"      => $request->getHost(),
+            "ips"        => $request->ips(),
         ];
     }
 
@@ -166,7 +166,7 @@ class FinanceTransactionController extends Controller
             $transaction->state = FinanceTransaction::STATE_FAILED;
         }
 
-        $transaction->end_log = self::getHttpLog(\request());
+        $transaction->end_log   = self::getHttpLog(\request());
         $transaction->verify_at = Carbon::now();
         $transaction->save();
     }
@@ -179,9 +179,9 @@ class FinanceTransactionController extends Controller
     public function addRule(): array
     {
         return [
-            'amount' => ['required', 'numeric'],
-            'description' => ['required', 'string', 'max:255'],
-            'start_log' => ['required'],
+            'amount'              => ['required', 'numeric'],
+            'description'         => ['required', 'string', 'max:255'],
+            'start_log'           => ['required'],
             'finance_provider_id' => ['required', "exists:finance_providers,id"],
         ];
     }

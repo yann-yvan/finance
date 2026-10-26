@@ -43,7 +43,7 @@ trait FinanceAccountTrait
      */
     public function balanceChecksum(bool $verifyChecksum, string $currency): float
     {
-        $account = FinanceAccount::where(FinanceAccount::OWNER_TYPE, __CLASS__)
+        $account = FinanceAccount::where(FinanceAccount::OWNER_TYPE, $this->getMorphClass())
             ->where(FinanceAccount::CURRENCY, $currency)
             ->where(FinanceAccount::LAST_VERIFICATION_AT, '>', now()->subMinutes(ConfigReader::getRefreshTtl()))
             ->where(FinanceAccount::OWNER_ID, $this->getKey())->first();
