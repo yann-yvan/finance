@@ -300,7 +300,7 @@ trait FinanceAccountTrait
     public function transfer(Model $beneficiary, string $providerId, float $amount, string $description, ?string $currency = null, ?array $display = null, array $tags = []): DefResponse
     {
         if (!in_array(FinanceAccountTrait::class, class_uses($beneficiary), true)) {
-            return DefResponse::parse(self::financeResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, message: "Beneficiary not using FinanceAccountTrait"));
+            return new DefResponse(self::financeResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, message: "Beneficiary not using FinanceAccountTrait"));
         }
 
         try {
@@ -317,18 +317,18 @@ trait FinanceAccountTrait
                 return $debit;
             });
         } catch (Exception|Throwable $exception) {
-            return DefResponse::parse(self::financeResponse(ResponseCode::REQUEST_EXCEPTION, message: $exception->getMessage()));
+            return new DefResponse(self::financeResponse(ResponseCode::REQUEST_EXCEPTION, message: $exception->getMessage()));
         }
     }
 
     public function debit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): DefResponse
     {
-        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, null, $providerCurrency, $allowZeroAmount, $display, $tags));
+        return new DefResponse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, null, $providerCurrency, $allowZeroAmount, $display, $tags));
     }
 
     public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): DefResponse
     {
-        return DefResponse::parse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet, $providerCurrency, $allowZeroAmount, $display, $tags));
+        return new DefResponse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet, $providerCurrency, $allowZeroAmount, $display, $tags));
     }
 
     public function setThreshold(float $minBalance): FinanceAccount

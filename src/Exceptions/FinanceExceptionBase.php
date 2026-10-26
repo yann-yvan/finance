@@ -8,15 +8,11 @@ use NYCorp\Finance\Http\Response\FinanceResponder;
 use NYCorp\Finance\Http\Response\LiteApiBridge;
 use NYCorp\Finance\Http\Response\ResponseCode;
 
-// Parent chosen once, when the class is first loaded (see LiteApiBridge)
+// Parent chosen once, when the class is first loaded (see LiteApiBridge). The bridged class adds and overrides nothing,
+// so it stays compatible with every lite-api 1.x release (constructor: int $code, string $message, mixed $data = null).
 if (LiteApiBridge::enabled()) {
     abstract class FinanceExceptionBase extends \Nycorp\LiteApi\Exceptions\LiteResponseException
     {
-        public function __construct(int $code, string $message, mixed $data = null)
-        {
-            \Exception::__construct($message, $code);
-            $this->data = $data;
-        }
     }
 } else {
     abstract class FinanceExceptionBase extends \Exception
@@ -33,7 +29,7 @@ if (LiteApiBridge::enabled()) {
 
         public static function parse(DefResponse $response): static
         {
-            return new static((int)$response->getCodeKey(), $response->getMessage(), $response->getData());
+            return new static($response->getCodeKey(), $response->getMessage(), $response->getData());
         }
 
         public function getData(): mixed

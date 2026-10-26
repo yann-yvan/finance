@@ -29,7 +29,7 @@ class ResponseFormatTest extends TestCase
         $this->assertSame(['success', 'message', 'code', 'body', 'trace_id'], array_keys($failure->getResponse()->getData(true)));
         $this->assertFalse($failure->isSuccess());
         $this->assertSame(1002, $failure->getCode());
-        $this->assertSame('-1002', $failure->getCodeKey());
+        $this->assertEquals(-1002, $failure->getCodeKey());
         $this->assertTrue($failure->isCodeSame(ResponseCode::REQUEST_VALIDATION_ERROR));
     }
 

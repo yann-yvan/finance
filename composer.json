@@ -34,7 +34,7 @@
   "require-dev": {
     "orchestra/testbench": "^9.0",
     "dohone/payment": "dev-master",
-    "nycorp/lite-api": "^1.1"
+    "nycorp/lite-api": "^1.6"
   },
   "scripts": {
     "test": "vendor/bin/phpunit"
