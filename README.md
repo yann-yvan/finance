@@ -106,17 +106,23 @@ return User::first()->credit(DefaultPaymentProvider::getId(), 0, 'Pro plan grant
 Public, translatable description and search tags (optional on credit, debit, deposit, withdrawal and transfer)
 
 ```php
+use NYCorp\Finance\Models\TransactionDisplay;
+
 $user->credit(DefaultPaymentProvider::getId(), 9.99, 'plan Pro #42 (internal)',
-    display: ['key' => 'subscription.payment', 'params' => ['plan' => 'Pro', 'from' => '2026-11-01']],
+    display: TransactionDisplay::make('subscription.payment')
+        ->with('plan', 'Pro')                         // string, int, float, bool, null or backed enum
+        ->withDate('from', $subscription->starts_at), // Y-m-d by default
     tags: ['plan:pro', 'invoice:FAC-001']);
 
+$transaction->display;           // TransactionDisplay (key(), params(), param(), translate())
 $transaction->describe();        // __('subscription.payment', [...]) from your lang files, else the description
 $transaction->tag('campaign:CMP-12');   // tags can be added later, even on a finalized transaction
 FinanceTransaction::tagged('plan:pro', 'invoice:FAC-001')->get();   // all the tags
 FinanceTransaction::taggedAny('merchant:eneo', 'merchant:camwater')->get();   // any of them
 ```
 
-`display` stores the key and its parameters, never the text, and is part of the v3 signature; tags live in an indexed
+`TransactionDisplay` is immutable and validated when built (an invalid key or parameter fails in your code, not in
+the library). It stores the key and its parameters, never the text, and is part of the v3 signature; tags live in an indexed
 table and are not signed (they are for search, not proof).
 
 Check if user can make transaction if his finance account is not disabled
@@ -286,7 +292,7 @@ php artisan finance:seal-history                # once after upgrading: seal the
 php artisan finance:expire-pending --minutes=10080   # cancel transactions a provider never answered
 ```
 
-Upgrading to 1.5: publish and run the four new migrations, set the key, run `finance:seal-history`, restart the queue
+Upgrading to 2.0: publish and run the four new migrations, set the key, run `finance:seal-history`, restart the queue
 workers, then schedule `finance:verify-integrity`.
 
 ## Tests

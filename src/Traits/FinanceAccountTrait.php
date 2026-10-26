@@ -24,6 +24,7 @@ use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceAuditLog;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\FinanceTransactionTag;
+use NYCorp\Finance\Models\TransactionDisplay;
 use NYCorp\Finance\Models\GatewayPayload;
 use NYCorp\Finance\Exceptions\FinanceException;
 use NYCorp\Finance\Http\Response\ResponseCode;
@@ -208,20 +209,19 @@ trait FinanceAccountTrait
      * @return JsonResponse
      * @deprecated Use credit() instead
      */
-    public function deposit(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): JsonResponse
+    public function deposit(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false, ?TransactionDisplay $display = null, array $tags = []): JsonResponse
     {
         return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, allowZeroAmount: $allowZeroAmount, display: $display, tags: $tags);
     }
 
     /**
      * @param bool $allowZeroAmount a 0 amount is refused unless explicitly allowed, e.g. to record a plan granted for free
-     * @param array|null $display public description: ['key' => translation key, 'params' => [...]], signed with the transaction
+     * @param TransactionDisplay|null $display public, translatable description, signed with the transaction
      * @param array $tags search tags (e.g. "campaign:CMP-12"), not signed, can be added later with FinanceTransaction::tag()
      */
-    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement, ?string $fromWalletId = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): JsonResponse
+    protected function makeTransaction(string $providerId, float $amount, string $description, ?string $currency, string $movement, ?string $fromWalletId = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?TransactionDisplay $display = null, array $tags = []): JsonResponse
     {
         try {
-            $display = FinanceTransaction::normalizeDisplay($display);
             $tags = FinanceTransactionTag::normalize($tags);
         } catch (FinanceException $exception) {
             return $exception->toResponse();
@@ -292,12 +292,12 @@ trait FinanceAccountTrait
      * @return JsonResponse
      * @deprecated Use debit() instead
      */
-    public function withdrawal(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): JsonResponse
+    public function withdrawal(string $providerId, float $amount, string $description, ?string $currency = null, bool $allowZeroAmount = false, ?TransactionDisplay $display = null, array $tags = []): JsonResponse
     {
         return $this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, allowZeroAmount: $allowZeroAmount, display: $display, tags: $tags);
     }
 
-    public function transfer(Model $beneficiary, string $providerId, float $amount, string $description, ?string $currency = null, ?array $display = null, array $tags = []): DefResponse
+    public function transfer(Model $beneficiary, string $providerId, float $amount, string $description, ?string $currency = null, ?TransactionDisplay $display = null, array $tags = []): DefResponse
     {
         if (!in_array(FinanceAccountTrait::class, class_uses($beneficiary), true)) {
             return new DefResponse(self::financeResponse(ResponseCode::REQUEST_NOT_AUTHORIZED, message: "Beneficiary not using FinanceAccountTrait"));
@@ -321,12 +321,12 @@ trait FinanceAccountTrait
         }
     }
 
-    public function debit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): DefResponse
+    public function debit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?TransactionDisplay $display = null, array $tags = []): DefResponse
     {
         return new DefResponse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::WITHDRAWAL_MOVEMENT, null, $providerCurrency, $allowZeroAmount, $display, $tags));
     }
 
-    public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?array $display = null, array $tags = []): DefResponse
+    public function credit(string $providerId, float $amount, string $description, ?string $currency = null, ?string $sourceWallet = null, ?string $providerCurrency = null, bool $allowZeroAmount = false, ?TransactionDisplay $display = null, array $tags = []): DefResponse
     {
         return new DefResponse($this->makeTransaction($providerId, $amount, $description, $currency, FinanceTransaction::DEPOSIT_MOVEMENT, $sourceWallet, $providerCurrency, $allowZeroAmount, $display, $tags));
     }

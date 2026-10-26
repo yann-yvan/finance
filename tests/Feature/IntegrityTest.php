@@ -18,6 +18,7 @@ use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\FinanceWallet;
 use NYCorp\Finance\Models\GatewayPayload;
+use NYCorp\Finance\Models\TransactionDisplay;
 use NYCorp\Finance\Scope\InvalidWalletScope;
 use NYCorp\Finance\Tests\Fixtures\FakeGateway;
 use NYCorp\Finance\Tests\TestCase;
@@ -276,7 +277,7 @@ class IntegrityTest extends TestCase
         config()->set('finance.signature.key', null);
 
         $user = $this->user();
-        $this->assertTrue($user->credit(DefaultPaymentProvider::getId(), 10, 'top up', display: ['key' => 'k'], tags: ['t'])->isSuccess());
+        $this->assertTrue($user->credit(DefaultPaymentProvider::getId(), 10, 'top up', display: TransactionDisplay::make('k'), tags: ['t'])->isSuccess());
         $this->assertTrue($user->debit(DefaultPaymentProvider::getId(), 4, 'usage')->isSuccess());
         $user->setThreshold(0);
 

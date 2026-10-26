@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use NYCorp\Finance\Casts\TransactionDisplayCast;
 use NYCorp\Finance\Exceptions\CompromisedTransactionException;
 use NYCorp\Finance\Exceptions\FinanceException;
 use NYCorp\Finance\Exceptions\LockedTransactionException;
@@ -35,7 +36,7 @@ use NYCorp\Finance\Http\Response\ResponseCode;
  * @property string|null $external_id
  * @property string $start_signature
  * @property string $description
- * @property array|null $display {"key": translation key, "params": {...}}
+ * @property TransactionDisplay|null $display public, translatable description
  * @property bool $is_locked
  * @property string|null $checksum
  * @property string $state
@@ -116,7 +117,7 @@ class FinanceTransaction extends Model
         self::VERIFY_AT => 'datetime',
         self::START_LOG => 'json',
         self::END_LOG => 'json',
-        self::DISPLAY => 'json',
+        self::DISPLAY => TransactionDisplayCast::class,
     ];
 
     /**
@@ -215,7 +216,7 @@ class FinanceTransaction extends Model
             $this->{self::CURRENCY},
             $this->{self::DESCRIPTION},
             $this->{self::FINANCE_PROVIDER_ID},
-            $this->{self::DISPLAY},
+            $this->{self::DISPLAY}?->toArray(),
             3,
         ];
     }
@@ -380,43 +381,14 @@ class FinanceTransaction extends Model
         return is_string($this->{self::CHECKSUM}) && hash_equals($this->calculateChecksum(), $this->{self::CHECKSUM});
     }
 
-    /**
-     * Validate and normalize a public description: ['key' => translation key, 'params' => [name => scalar]].
-     *
-     * @throws FinanceException
-     */
-    public static function normalizeDisplay(?array $display): ?array
-    {
-        if ($display === null) {
-            return null;
-        }
-
-        $key = $display['key'] ?? null;
-        if (!is_string($key) || trim($key) === '' || mb_strlen($key) > 191) {
-            throw new FinanceException(ResponseCode::REQUEST_VALIDATION_ERROR, 'The display key must be a non-empty string of at most 191 characters');
-        }
-
-        $params = $display['params'] ?? [];
-        if (!is_array($params)) {
-            throw new FinanceException(ResponseCode::REQUEST_VALIDATION_ERROR, 'The display params must be an array');
-        }
-        foreach ($params as $name => $value) {
-            if (!is_string($name) || !(is_scalar($value) || $value === null)) {
-                throw new FinanceException(ResponseCode::REQUEST_VALIDATION_ERROR, 'The display params must be named scalar values');
-            }
-        }
-
-        return ['key' => trim($key), 'params' => $params];
-    }
-
     public function displayKey(): ?string
     {
-        return $this->{self::DISPLAY}['key'] ?? null;
+        return $this->{self::DISPLAY}?->key();
     }
 
     public function displayParams(): array
     {
-        return $this->{self::DISPLAY}['params'] ?? [];
+        return $this->{self::DISPLAY}?->params() ?? [];
     }
 
     /**
@@ -424,13 +396,7 @@ class FinanceTransaction extends Model
      */
     public function describe(?string $locale = null): string
     {
-        $key = $this->displayKey();
-        if ($key === null) {
-            return (string)$this->{self::DESCRIPTION};
-        }
-
-        $text = trans($key, $this->displayParams(), $locale);
-        return is_string($text) && $text !== $key ? $text : (string)$this->{self::DESCRIPTION};
+        return $this->{self::DISPLAY}?->translate($locale) ?? (string)$this->{self::DESCRIPTION};
     }
 
     public function tags(): HasMany

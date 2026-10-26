@@ -20,6 +20,7 @@ use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceProvider;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\FinanceWallet;
+use NYCorp\Finance\Models\TransactionDisplay;
 use NYCorp\Finance\Scope\InvalidWalletScope;
 use NYCorp\Finance\Exceptions\FinanceException;
 use NYCorp\Finance\Http\Response\ResponseCode;
@@ -47,7 +48,7 @@ class FinanceTransactionController extends Controller
      * @return JsonResponse
      * @throws FinanceException
      */
-    public static function init(Request $request, Model $accountable, string $movement, ?array $display = null): JsonResponse
+    public static function init(Request $request, Model $accountable, string $movement, ?TransactionDisplay $display = null): JsonResponse
     {
         return (new FinanceTransactionController($accountable))->store($request, PaymentProviderGateway::load($request->get("provider_id"))->getFinanceProvider(), $movement, $display);
     }
@@ -62,7 +63,7 @@ class FinanceTransactionController extends Controller
      * @return JsonResponse
      * @throws Exception
      */
-    private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT, ?array $display = null): JsonResponse
+    private function store(Request $request, FinanceProvider $provider, string $financeMovement = FinanceTransaction::DEPOSIT_MOVEMENT, ?TransactionDisplay $display = null): JsonResponse
     {
         $rawAmount        = $request->get("amount");
         $currency         = $request->get("currency") ?? ConfigReader::getDefaultCurrency();

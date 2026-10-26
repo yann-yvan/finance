@@ -8,18 +8,31 @@ use NYCorp\Finance\Integrity\IntegrityVerifier;
 use NYCorp\Finance\Models\FinanceTransaction;
 use NYCorp\Finance\Models\FinanceTransactionTag;
 use NYCorp\Finance\Models\FinanceWallet;
+use NYCorp\Finance\Models\TransactionDisplay;
 use NYCorp\Finance\Tests\TestCase;
+
+enum PlanFixture: string
+{
+    case Pro = 'pro';
+}
 
 class DisplayAndTagsTest extends TestCase
 {
-    private const DISPLAY = ['key' => 'subscription.payment', 'params' => ['plan' => 'Pro', 'from' => '2026-11-01']];
+    private function display(): TransactionDisplay
+    {
+        return TransactionDisplay::make('subscription.payment')
+            ->with('plan', 'Pro')
+            ->withDate('from', new \DateTimeImmutable('2026-11-01 08:30:00'));
+    }
 
     public function test_display_is_stored_as_key_and_params_and_translated_by_the_host(): void
     {
-        $this->user()->credit(DefaultPaymentProvider::getId(), 10, 'internal: plan Pro #42', display: self::DISPLAY);
+        $this->user()->credit(DefaultPaymentProvider::getId(), 10, 'internal: plan Pro #42', display: $this->display());
 
         $transaction = FinanceTransaction::sole();
-        $this->assertSame(self::DISPLAY, $transaction->display);
+        $this->assertInstanceOf(TransactionDisplay::class, $transaction->display);
+        $this->assertTrue($this->display()->equals($transaction->display));
+        $this->assertSame(['key' => 'subscription.payment', 'params' => ['plan' => 'Pro', 'from' => '2026-11-01']], json_decode(DB::table('finance_transactions')->value('display'), true));
         $this->assertSame('subscription.payment', $transaction->displayKey());
         $this->assertSame(['plan' => 'Pro', 'from' => '2026-11-01'], $transaction->displayParams());
         $this->assertSame('internal: plan Pro #42', $transaction->description);
@@ -33,7 +46,7 @@ class DisplayAndTagsTest extends TestCase
 
     public function test_display_is_part_of_the_v3_signature(): void
     {
-        $this->user()->credit(DefaultPaymentProvider::getId(), 10, 'x', display: self::DISPLAY);
+        $this->user()->credit(DefaultPaymentProvider::getId(), 10, 'x', display: $this->display());
         $this->dropTrigger();
         DB::table('finance_transactions')->update(['display' => json_encode(['key' => 'refund', 'params' => []])]);
 
@@ -42,13 +55,25 @@ class DisplayAndTagsTest extends TestCase
         $this->assertFalse((new IntegrityVerifier())->run()->isValid());
     }
 
-    public function test_invalid_display_is_refused_before_anything_is_written(): void
+    public function test_display_builder_is_typed_and_immutable(): void
     {
-        $user = $this->user();
+        $base = TransactionDisplay::make('plan.granted');
+        $withPlan = $base->with('plan', PlanFixture::Pro)->with('free', true)->with('at', new \DateTimeImmutable('2026-11-01T10:00:00+01:00'));
 
-        $this->assertFalse($user->credit(DefaultPaymentProvider::getId(), 10, 'x', display: ['params' => []])->isSuccess());
-        $this->assertFalse($user->credit(DefaultPaymentProvider::getId(), 10, 'x', display: ['key' => 'a', 'params' => ['nested' => ['no']]])->isSuccess());
-        $this->assertSame(0, FinanceTransaction::count());
+        $this->assertSame([], $base->params());
+        $this->assertSame(['plan' => 'pro', 'free' => true, 'at' => '2026-11-01T10:00:00+01:00'], $withPlan->params());
+        $this->assertSame('pro', $withPlan->param('plan'));
+        $this->assertTrue(TransactionDisplay::fromArray($withPlan->toArray())->equals($withPlan));
+        $this->assertNull(TransactionDisplay::fromArray(null));
+    }
+
+    public function test_invalid_display_fails_in_the_calling_code(): void
+    {
+        $this->assertThrows(fn() => TransactionDisplay::make('  '), \InvalidArgumentException::class);
+        $this->assertThrows(fn() => TransactionDisplay::make(str_repeat('k', 192)), \InvalidArgumentException::class);
+        $this->assertThrows(fn() => TransactionDisplay::make('k', ['positional']), \InvalidArgumentException::class);
+        $this->assertThrows(fn() => TransactionDisplay::make('k', ['nested' => ['no']]), \TypeError::class);
+        $this->assertThrows(fn() => FinanceTransaction::make()->forceFill(['display' => ['key' => 'raw array']]), \InvalidArgumentException::class);
     }
 
     public function test_tags_are_set_at_credit_time_and_added_later(): void
@@ -82,7 +107,7 @@ class DisplayAndTagsTest extends TestCase
         $alice = $this->user('alice');
         $alice->credit(DefaultPaymentProvider::getId(), 50, 'top up');
 
-        $alice->transfer($this->user('bob'), DefaultPaymentProvider::getId(), 20, 'gift', display: ['key' => 'transfer.gift'], tags: ['gift']);
+        $alice->transfer($this->user('bob'), DefaultPaymentProvider::getId(), 20, 'gift', display: TransactionDisplay::make('transfer.gift'), tags: ['gift']);
 
         $transfers = FinanceTransaction::tagged('gift')->get();
         $this->assertCount(2, $transfers);
