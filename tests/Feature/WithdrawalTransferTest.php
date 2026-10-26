@@ -25,6 +25,26 @@ class WithdrawalTransferTest extends TestCase
         $this->assertEquals(-30, (float)FinanceTransaction::debit()->sole()->amount);
     }
 
+    public function test_sub_cent_amounts_keep_valid_signatures(): void
+    {
+        $user = $this->user();
+        $user->credit(DefaultPaymentProvider::getId(), 1, 'top up');
+
+        foreach ([0.000228, 0.00457, 0.0000049, 1e-5] as $amount) {
+            $response = $user->debit(DefaultPaymentProvider::getId(), $amount, 'per message fee');
+            if (round($amount, 5) == 0) {
+                $this->assertFalse($response->isSuccess());
+                continue;
+            }
+            $this->assertTrue($response->isSuccess(), $response->getMessage());
+        }
+
+        foreach (FinanceTransaction::all() as $transaction) {
+            $this->assertTrue($transaction->hasValidStartSignature(), (string)$transaction->amount);
+            $this->assertTrue($transaction->verifyChecksum(), (string)$transaction->amount);
+        }
+    }
+
     public function test_debit_beyond_balance_is_refused_without_leaving_a_transaction(): void
     {
         $user = $this->user();
