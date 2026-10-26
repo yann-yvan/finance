@@ -25,21 +25,33 @@ return new class extends Migration {
             $table->timestamps();
         });
 
-        DB::unprepared("
-            CREATE TRIGGER prevent_owner_update
-            BEFORE UPDATE ON finance_ledgers
-            FOR EACH ROW
-            BEGIN
-                IF NEW.owner_id != OLD.owner_id THEN
-                    SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'Updating the owner is not allowed';
-                END IF;
-                IF NEW.owner_type != OLD.owner_type THEN
-                    SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'Updating the owner is not allowed';
-                END IF;
-            END
-        ");
+        $driver = DB::getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::unprepared("
+                CREATE TRIGGER prevent_owner_update
+                BEFORE UPDATE ON finance_ledgers
+                FOR EACH ROW
+                BEGIN
+                    IF NEW.owner_id != OLD.owner_id THEN
+                        SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'Updating the owner is not allowed';
+                    END IF;
+                    IF NEW.owner_type != OLD.owner_type THEN
+                        SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'Updating the owner is not allowed';
+                    END IF;
+                END
+            ");
+        } elseif ($driver === 'sqlite') {
+            DB::unprepared("
+                CREATE TRIGGER prevent_owner_update
+                BEFORE UPDATE ON finance_ledgers
+                FOR EACH ROW WHEN NEW.owner_id != OLD.owner_id OR NEW.owner_type != OLD.owner_type
+                BEGIN
+                    SELECT RAISE(ABORT, 'Updating the owner is not allowed');
+                END
+            ");
+        }
 
     }
 

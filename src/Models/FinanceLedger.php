@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use NYCorp\Finance\Http\Core\ConfigReader;
+use NYCorp\Finance\Integrity\Signer;
 use NYCorp\Finance\Traits\FinanceAccountTrait;
 
 /**
@@ -62,19 +63,40 @@ class FinanceLedger extends Model
     {
         parent::boot();
 
+        // "creating" runs after "saving": the signed checksum is computed once the id exists
         static::creating(static function ($model) {
-            $model->id = Str::uuid(); // Generate UUID as a string for ID
+            $model->id = Str::uuid()->toString(); // Generate UUID as a string for ID
+            $model->{self::CHECKSUM} = $model->calculateChecksum();
         });
 
         // Automatically set the checksum when saving the model.
         static::saving(static function ($wallet) {
-            $wallet->{self::CHECKSUM} = $wallet->calculateChecksum();
             if ($wallet->{self::CURRENCY} === null) {
                 $wallet->{self::CURRENCY} = (new FinanceLedger())->getCurrency();
             }
+            $wallet->{self::CHECKSUM} = $wallet->calculateChecksum();
         });
     }
 
+    protected function legacyChecksum(): string
+    {
+        return hash('sha256', implode('|', [
+            $this->{self::NAME},
+            $this->{self::OWNER_ID},
+            $this->{self::OWNER_TYPE}
+        ]));
+    }
+
+    protected function checksumFields(): array
+    {
+        return [
+            $this->{self::ID},
+            $this->{self::NAME},
+            $this->{self::CURRENCY},
+            $this->{self::OWNER_ID},
+            $this->{self::OWNER_TYPE},
+        ];
+    }
 
     /**
      * Calculate a checksum for the current state of the wallet.
@@ -83,14 +105,22 @@ class FinanceLedger extends Model
      */
     public function calculateChecksum(): string
     {
-        $data = [
-            $this->{self::NAME},
-            $this->{self::OWNER_ID},
-            $this->{self::OWNER_TYPE}
-        ];
+        if (Signer::isEnabled() && $this->{self::ID} !== null) {
+            return Signer::sign($this->checksumFields());
+        }
 
         // Generate the checksum using SHA-256 or any other preferred hash algorithm
-        return hash('sha256', implode('|', $data));
+        return $this->legacyChecksum();
+    }
+
+    public function verifyChecksum(): bool
+    {
+        $stored = $this->{self::CHECKSUM};
+        if (Signer::isSigned($stored)) {
+            return Signer::verify($this->checksumFields(), $stored);
+        }
+
+        return is_string($stored) && hash_equals($this->legacyChecksum(), $stored);
     }
 
     public function getCurrency(): string

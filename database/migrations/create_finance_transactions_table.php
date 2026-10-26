@@ -32,30 +32,51 @@ return new class extends Migration {
             $table->timestamps();
         });
 
-        DB::unprepared("
-            CREATE TRIGGER before_finance_transaction_update
-            BEFORE UPDATE ON finance_transactions
-            FOR EACH ROW
-            BEGIN
-                -- Prevent updates if the transaction is locked
-                IF OLD.is_locked = TRUE THEN
-                    SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'This transaction is locked and cannot be modified.';
-                END IF;
-            END
-        ");
+        $driver = DB::getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::unprepared("
+                CREATE TRIGGER before_finance_transaction_update
+                BEFORE UPDATE ON finance_transactions
+                FOR EACH ROW
+                BEGIN
+                    -- Prevent updates if the transaction is locked
+                    IF OLD.is_locked = TRUE THEN
+                        SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'This transaction is locked and cannot be modified.';
+                    END IF;
+                END
+            ");
 
-        DB::unprepared("
-            CREATE TRIGGER prevent_start_signature_update
-            BEFORE UPDATE ON finance_transactions
-            FOR EACH ROW
-            BEGIN
-                IF NEW.start_signature != OLD.start_signature THEN
-                    SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'Updating the start_signature is not allowed';
-                END IF;
-            END
-        ");
+            DB::unprepared("
+                CREATE TRIGGER prevent_start_signature_update
+                BEFORE UPDATE ON finance_transactions
+                FOR EACH ROW
+                BEGIN
+                    IF NEW.start_signature != OLD.start_signature THEN
+                        SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'Updating the start_signature is not allowed';
+                    END IF;
+                END
+            ");
+        } elseif ($driver === 'sqlite') {
+            DB::unprepared("
+                CREATE TRIGGER before_finance_transaction_update
+                BEFORE UPDATE ON finance_transactions
+                FOR EACH ROW WHEN OLD.is_locked = 1
+                BEGIN
+                    SELECT RAISE(ABORT, 'This transaction is locked and cannot be modified.');
+                END
+            ");
+
+            DB::unprepared("
+                CREATE TRIGGER prevent_start_signature_update
+                BEFORE UPDATE ON finance_transactions
+                FOR EACH ROW WHEN NEW.start_signature != OLD.start_signature
+                BEGIN
+                    SELECT RAISE(ABORT, 'Updating the start_signature is not allowed');
+                END
+            ");
+        }
     }
 
     /**

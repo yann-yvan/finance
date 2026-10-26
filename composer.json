@@ -19,6 +19,11 @@
       "NYCorp\\Finance\\": "src"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "NYCorp\\Finance\\Tests\\": "tests/"
+    }
+  },
   "extra": {
     "laravel": {
       "providers": [
@@ -30,5 +35,8 @@
     "orchestra/testbench": "^9.0",
     "dohone/payment": "dev-master",
     "nycorp/lite-api": "^1.1"
+  },
+  "scripts": {
+    "test": "vendor/bin/phpunit"
   }
 }

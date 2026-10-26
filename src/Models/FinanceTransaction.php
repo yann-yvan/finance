@@ -9,12 +9,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use NYCorp\Finance\Exceptions\CompromisedTransactionException;
 use NYCorp\Finance\Exceptions\LockedTransactionException;
 use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Http\Core\ExchangeRate;
+use NYCorp\Finance\Integrity\AuditTrail;
+use NYCorp\Finance\Integrity\FinanceSchema;
+use NYCorp\Finance\Integrity\HashChain;
+use NYCorp\Finance\Integrity\Signer;
 use Nycorp\LiteApi\Models\ResponseCode;
 
 /**
@@ -132,9 +135,9 @@ class FinanceTransaction extends Model
             $model->id = Str::uuid()->toString(); // Generate UUID as a string for ID
             $model->state = self::STATE_PENDING;
 
-            if (Schema::hasColumn($model->getTable(), 'signature_version')) {
-                // Use v2 signature logic
-                $model->signature_version = 2;
+            if (FinanceSchema::hasColumn($model->getTable(), self::SIGNATURE_VERSION)) {
+                // v3 (HMAC with a dedicated key) when a key is configured, v2 otherwise
+                $model->signature_version = Signer::isEnabled() ? 3 : 2;
             }
 
             // Generate the start signature when creating the transaction
@@ -154,6 +157,19 @@ class FinanceTransaction extends Model
                 $model->is_locked = true;  // Lock the transaction once it's completed or finalized
             }
         });
+
+        // Seal every finalized transaction in the owner's hash chain and the audit log
+        static::updated(static function (FinanceTransaction $model) {
+            if ($model->wasChanged(self::STATE) && $model->is_locked && $model->requiresFinalization()) {
+                HashChain::append($model);
+                AuditTrail::record(
+                    FinanceAuditLog::EVENT_TRANSACTION_FINALIZED,
+                    $model,
+                    [self::STATE => $model->getOriginal(self::STATE)],
+                    [self::STATE => $model->state, self::EXTERNAL_ID => $model->external_id, self::AMOUNT => (string)$model->amount, self::CURRENCY => $model->currency],
+                );
+            }
+        });
     }
 
     public function generateStartSignature(): void
@@ -163,7 +179,11 @@ class FinanceTransaction extends Model
 
     public function calculateStartSignature(): string
     {
-        $version = $this->signature_version ?? 1;
+        $version = (int)($this->signature_version ?? 1);
+
+        if ($version === 3) {
+            return Signer::sign($this->getStartSignatureFieldsV3());
+        }
 
         if ($version === 2) {
             $fields = $this->getStartSignatureFieldsV2();
@@ -172,6 +192,24 @@ class FinanceTransaction extends Model
         }
 
         return $this->generateHash($fields);
+    }
+
+    /**
+     * v3: the values (not the column names), serialised without ambiguity and signed with a key
+     *
+     * @return array
+     */
+    protected function getStartSignatureFieldsV3(): array
+    {
+        return [
+            $this->{self::ID},
+            $this->{self::AMOUNT},
+            $this->{self::START_LOG},
+            $this->{self::CURRENCY},
+            $this->{self::DESCRIPTION},
+            $this->{self::FINANCE_PROVIDER_ID},
+            3,
+        ];
     }
 
     /**
@@ -196,6 +234,7 @@ class FinanceTransaction extends Model
      * Get the fields to be included in the start signature generation
      *
      * @return array
+     * @deprecated v1 hashes the column names, not their values: it proves nothing and is only kept to read old rows
      */
     protected function getStartSignatureFieldsV1(): array
     {
@@ -239,9 +278,18 @@ class FinanceTransaction extends Model
      */
     public function verifyStartSignature(): void
     {
-        if ($this->start_signature !== $this->calculateStartSignature()) {
+        if (!$this->hasValidStartSignature()) {
             throw new CompromisedTransactionException(code: ResponseCode::REQUEST_VALIDATION_ERROR, message: 'Start signature has been tampered with.');
         }
+    }
+
+    public function hasValidStartSignature(): bool
+    {
+        if ((int)($this->signature_version ?? 1) === 3) {
+            return Signer::verify($this->getStartSignatureFieldsV3(), $this->start_signature);
+        }
+
+        return is_string($this->start_signature) && hash_equals($this->calculateStartSignature(), $this->start_signature);
     }
 
     /**
@@ -257,13 +305,28 @@ class FinanceTransaction extends Model
      */
     public function calculateChecksum(): string
     {
-        $version = $this->signature_version ?? 1;
+        $version = (int)($this->signature_version ?? 1);
+
+        if ($version === 3) {
+            return Signer::sign($this->getChecksumFieldsV3());
+        }
 
         $startFields = $version === 2 ? $this->getStartSignatureFieldsV2() : $this->getStartSignatureFieldsV1();
 
         $endFields = $version === 2 ? $this->getEndSignatureFieldsV2() : $this->getEndSignatureFieldsV1();
 
         return $this->generateHash(array_merge($startFields, $endFields));
+    }
+
+    protected function getChecksumFieldsV3(): array
+    {
+        return array_merge($this->getStartSignatureFieldsV3(), [
+            $this->{self::START_SIGNATURE},
+            $this->{self::STATE},
+            $this->{self::END_LOG},
+            $this->{self::VERIFY_AT}?->format('Y-m-d H:i:s'),
+            $this->{self::EXTERNAL_ID},
+        ]);
     }
 
     /**
@@ -286,6 +349,7 @@ class FinanceTransaction extends Model
      * Get the fields to be included in the checksum calculation for end of transaction
      *
      * @return array
+     * @deprecated see getStartSignatureFieldsV1()
      */
     protected function getEndSignatureFieldsV1(): array
     {
@@ -301,7 +365,11 @@ class FinanceTransaction extends Model
      */
     public function verifyChecksum(): bool
     {
-        return $this->{self::CHECKSUM} === $this->calculateChecksum();
+        if ((int)($this->signature_version ?? 1) === 3) {
+            return Signer::verify($this->getChecksumFieldsV3(), $this->{self::CHECKSUM});
+        }
+
+        return is_string($this->{self::CHECKSUM}) && hash_equals($this->calculateChecksum(), $this->{self::CHECKSUM});
     }
 
     public function financeProvider(): BelongsTo

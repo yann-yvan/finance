@@ -37,7 +37,7 @@ class DefaultPaymentProvider extends PaymentProviderGateway implements InternalP
         $walletId = $this->getWallet($transaction)->id;
         $this->response = new FinanceProviderGatewayResponse($transaction, $walletId, [], false, null);
         $transaction->{FinanceTransaction::EXTERNAL_ID} = $walletId;
-        FinanceTransactionController::close($transaction);
+        FinanceTransactionController::close($transaction, FinanceTransaction::STATE_COMPLETED);
         return $this;
     }
 
@@ -46,7 +46,7 @@ class DefaultPaymentProvider extends PaymentProviderGateway implements InternalP
         $walletId = $this->getWallet($transaction)->id;
         $this->response = new FinanceProviderGatewayResponse($transaction, $walletId, [], false, null);
         $transaction->{FinanceTransaction::EXTERNAL_ID} = $walletId;
-        FinanceTransactionController::close($transaction);
+        FinanceTransactionController::close($transaction, FinanceTransaction::STATE_COMPLETED);
         return $this;
     }
 

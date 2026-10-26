@@ -18,7 +18,7 @@ class FinanceProviderController
     public function providers(): JsonResponse
     {
         try {
-            PaymentProviderGateway::load();
+            PaymentProviderGateway::register();
             return self::liteResponse(code: ResponseCode::REQUEST_SUCCESS, data: FinanceProvider::where(FinanceProvider::IS_PUBLIC, true)->get([
                 "assigned_id as provider_id",
                 FinanceProvider::NAME,
@@ -29,7 +29,7 @@ class FinanceProviderController
                 FinanceProvider::IS_WITHDRAWAL_AVAILABLE,
             ]));
         } catch (\Exception $exception) {
-            Log::error('*Loading Payment Providers* with ' . $exception->getMessage(), $exception->getTrace() ?? []);
+            Log::error('*Loading Payment Providers* with ' . $exception->getMessage());
             return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
         }
     }

@@ -6,6 +6,9 @@ namespace NYCorp\Finance;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use NYCorp\Finance\Console\ExpirePendingTransactionsCommand;
+use NYCorp\Finance\Console\SealHistoryCommand;
+use NYCorp\Finance\Console\VerifyIntegrityCommand;
 use NYCorp\Finance\Http\Core\ConfigReader;
 
 class FinanceServiceProvider extends ServiceProvider
@@ -17,45 +20,40 @@ class FinanceServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/../config/config.php', ConfigReader::FINANCE_CONFIG);
     }
 
+    /**
+     * Migration files in execution order (published as 2024_11_13_1000NN_<name>.php)
+     */
+    public static function migrations(): array
+    {
+        return [
+            'create_finance_providers_table',
+            'create_finance_transactions_table',
+            'create_finance_wallets_table',
+            'create_finance_accounts_table',
+            'add_signature_version_to_finance_transactions',
+            'create_finance_ledgers_table',
+            'create_finance_chain_entries_table',
+            'create_finance_audit_logs_table',
+        ];
+    }
+
     public function boot()
     {
         if ($this->app->runningInConsole()) {
             // Export the migration
-
-            $migrationClasses = [
-                'CreateFinanceProvidersTable',
-                'CreateFinanceTransactionsTable',
-                'CreateFinanceWalletsTable',
-                'CreateFinanceAccountsTable',
-                'AddSignatureVersionToFinanceTransactions',
-                'CreateFinanceLedgersTable',
-            ];
-
             $migrations = [];
-
-            foreach ($migrationClasses as $key=>$class) {
-                if (!class_exists($class, true)) {
-                    //Extract word from first upper case letter
-                    $words = preg_split('/(?=[A-Z])/', $class);
-
-                    //Remove first element of the array because it is empty
-                    unset($words[0]);
-
-                    //change first upper case letter to lower case
-                    for ($i = 1, $iMax = count($words); $i <= $iMax; $i++) {
-                        $words[$i] = lcfirst($words[$i]);
-                    }
-
-                    //join them to match migration name convention on Laravel
-                    $migrationName = implode("_", $words);
-
-                    //Add class migration in list
-                    $migrations[__DIR__ . "/../database/migrations/$migrationName.php"] = database_path('migrations/' . "2024_11_13_10000{$key}_$migrationName.php");
-                }
+            foreach (self::migrations() as $key => $migrationName) {
+                //Add class migration in list
+                $migrations[__DIR__ . "/../database/migrations/$migrationName.php"] = database_path('migrations/' . sprintf('2024_11_13_%06d_%s.php', 100000 + $key, $migrationName));
             }
 
-
             $this->publishes($migrations, 'migrations');
+
+            $this->commands([
+                VerifyIntegrityCommand::class,
+                SealHistoryCommand::class,
+                ExpirePendingTransactionsCommand::class,
+            ]);
         }
 
         $this->publishes([

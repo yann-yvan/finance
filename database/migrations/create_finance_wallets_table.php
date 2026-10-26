@@ -30,14 +30,25 @@ return new class extends Migration {
             $table->timestamps();
         });
 
-        DB::unprepared("
-            CREATE TRIGGER prevent_update_finance_wallets
-            BEFORE UPDATE ON finance_wallets
-            FOR EACH ROW
-            BEGIN
-                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Updates are not allowed on this row';
-            END;
-        ");
+        $driver = DB::getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::unprepared("
+                CREATE TRIGGER prevent_update_finance_wallets
+                BEFORE UPDATE ON finance_wallets
+                FOR EACH ROW
+                BEGIN
+                    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Updates are not allowed on this row';
+                END;
+            ");
+        } elseif ($driver === 'sqlite') {
+            DB::unprepared("
+                CREATE TRIGGER prevent_update_finance_wallets
+                BEFORE UPDATE ON finance_wallets
+                BEGIN
+                    SELECT RAISE(ABORT, 'Updates are not allowed on this row');
+                END
+            ");
+        }
     }
 
     /**

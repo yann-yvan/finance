@@ -44,7 +44,7 @@ class DohonePaymentProvider extends PaymentProviderGateway
             ->setClientEmail($payload->getAccountEmail())
             ->setCommandID($transaction->id)
             ->setNotifyPage($this->depositNotificationUrl())
-            ->setOTPCode(request()->get('otp')??12345)
+            ->setOTPCode(request()->get('otp'))
             ->setDescription($transaction->description)
             ->setMethod($payload->getPaymentMethod() ?? request()->get('mode'));
 
@@ -81,28 +81,41 @@ class DohonePaymentProvider extends PaymentProviderGateway
                 "response" => $result->getMessage(),
                 "mode" => $api->getMethod()
             ]);
-            FinanceTransactionController::close($transaction);
+            FinanceTransactionController::close($transaction, FinanceTransaction::STATE_COMPLETED);
         }
         return $this;
     }
 
     public function onDepositSuccess(Request $request): PaymentProviderGateway
     {
-        Log::debug("**Payment** | Dohone : callback " . $request->rI, $request->all());
+        Log::debug("**Payment** | Dohone : deposit callback received");
 
-        $this->findTransaction($request, 'rI');
+        if ($this->findTransaction($request, 'rI') === null) {
+            return $this;
+        }
 
         $data = $request->all();
         try {
-            $convertedAmount = $this->transaction->getConvertedAmount(asInt: true);
-            $this->successful = $data["hash"] === md5($data["idReqDoh"] . $data["rI"] . $data["rMt"] . config("dohone.payOutHashCode")) && ((int)$data["rMt"] >= $convertedAmount);
-            if ($this->successful()) {
-                $this->message = "Well Done";
-                $this->setExternalId($data["idReqDoh"]);
-            } else {
-                Log::error("**Payment** | Dohone : Tx {$this->transaction->id} invalid hashcode or amount mismatch  $convertedAmount <> {$data["rMt"]} ");
+            $expected = md5(Arr::get($data, 'idReqDoh', '') . Arr::get($data, 'rI', '') . Arr::get($data, 'rMt', '') . config("dohone.payOutHashCode"));
+            $received = Arr::get($data, 'hash');
+            if (!is_string($received) || !hash_equals($expected, strtolower($received))) {
+                $this->rejectCallback('invalid hash');
+                $this->response = new FinanceProviderGatewayResponse($this->transaction, null, []);
+                return $this;
             }
-            $this->response = new FinanceProviderGatewayResponse($this->transaction, null, $request->all());
+
+            $convertedAmount = $this->transaction->getConvertedAmount(asInt: true);
+            if ((int)Arr::get($data, 'rMt') >= $convertedAmount) {
+                $this->successful = true;
+                $this->message = "Well Done";
+                $this->setExternalId((string)$data["idReqDoh"]);
+            } else {
+                // Authenticated by the hash: the amount paid is definitively short
+                Log::error("**Payment** | Dohone : Tx {$this->transaction->id} amount mismatch $convertedAmount <> " . Arr::get($data, 'rMt'));
+                $this->markDefinitiveFailure();
+                $this->message = "Amount mismatch";
+            }
+            $this->response = new FinanceProviderGatewayResponse($this->transaction, null, []);
         } catch (Exception $exception) {
             $this->message = $exception->getMessage();
         }
@@ -110,9 +123,18 @@ class DohonePaymentProvider extends PaymentProviderGateway
         return $this;
     }
 
+    /**
+     * Dohone payouts are settled synchronously in withdrawal(): a payout notification never changes a transaction.
+     */
     public function onWithdrawalSuccess(Request $request): PaymentProviderGateway
     {
-        // TODO: Implement onWithdrawalSuccess() method.
+        Log::debug("**Payment** | Dohone : withdrawal callback received");
+
+        if ($this->findTransaction($request, 'rI') ?? $this->findTransaction($request, 'transaction_id')) {
+            $this->message = "Dohone payouts are settled synchronously";
+            $this->response = new FinanceProviderGatewayResponse($this->transaction, null, []);
+        }
+
         return $this;
     }
 

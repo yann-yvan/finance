@@ -46,7 +46,7 @@ class FinanceWalletController extends Controller
             ];
             return $this->save($data);
         } catch (Exception   $exception) {
-            return self::liteResponse(ResponseCode::REQUEST_FAILURE, $exception->getTrace(), $exception->getMessage());
+            return self::liteResponse(ResponseCode::REQUEST_FAILURE, message: $exception->getMessage());
         }
     }
 

@@ -24,6 +24,8 @@ abstract class PaymentProviderGateway implements IPaymentProvider
     protected FinanceProviderGatewayResponse $response;
     protected FinanceTransaction $transaction;
     protected bool $isWithdrawalRealTime = false;
+    protected bool $definitiveFailure = false;
+    protected ?string $rejectionReason = null;
     private FinanceProvider $financeProvider;
 
     public function __construct()
@@ -36,46 +38,66 @@ abstract class PaymentProviderGateway implements IPaymentProvider
      */
     public static function load($id = null): PaymentProviderGateway
     {
-        $requestedGatewayProvider = null;
+        if ($id !== null && $id !== '') {
+            foreach (self::register() as [$gatewayProvider, $registeredProvider]) {
+                //Id can be either provider id, or assigned_id (int and numeric string are the same id)
+                if ((string)$id === (string)$registeredProvider->{FinanceProvider::ASSIGNED_ID} || (string)$id === (string)$registeredProvider->getKey()) {
+                    if ($gatewayProvider instanceof InternalProvider) {
+                        // Bypass restrictions for the internal provider
+                        $registeredProvider->is_deposit_available = true;
+                        $registeredProvider->is_withdrawal_available = true;
+                        $registeredProvider->is_available = true;
+                    }
+
+                    $gatewayProvider->financeProvider = $registeredProvider;
+                    return $gatewayProvider;
+                }
+            }
+        }
+
+        throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, message: 'Gateway Not Found');
+    }
+
+    /**
+     * Register the configured providers: one query for the known ones, an insert only for the missing ones.
+     *
+     * @return array<string, array{0: PaymentProviderGateway, 1: FinanceProvider}> indexed by assigned id
+     */
+    public static function register(): array
+    {
+        $gateways = [];
         foreach (ConfigReader::getPaymentProviders() as $clazz) {
             try {
                 $gatewayProvider = new $clazz();
                 if ($gatewayProvider instanceof self) {
-                    $registeredProvider = FinanceProvider::firstOrCreate(
-                        [FinanceProvider::ASSIGNED_ID => $gatewayProvider::getId()],
-                        [
-                            FinanceProvider::NAME => $gatewayProvider::getName(),
-                            FinanceProvider::IS_AVAILABLE => $gatewayProvider->isAvailable(),
-                            FinanceProvider::IS_WITHDRAWAL_AVAILABLE => $gatewayProvider->isWithdrawalAvailable(),
-                            FinanceProvider::IS_DEPOSIT_AVAILABLE => $gatewayProvider->isDepositAvailable(),
-                            FinanceProvider::IS_PUBLIC => $gatewayProvider->isPublic(),
-                        ]
-                    );
-
-                    //Id can be either provider id, or assigned_id
-                    if ($id === $registeredProvider->{FinanceProvider::ASSIGNED_ID} || $id === $registeredProvider->id) {
-                        $requestedGatewayProvider = $gatewayProvider;
-
-                        if ($gatewayProvider instanceof InternalProvider) {
-                            // Bypass restrictions for the internal provider
-                            $registeredProvider->is_deposit_available = true;
-                            $registeredProvider->is_withdrawal_available = true;
-                            $registeredProvider->is_available = true;
-                        }
-
-                        $requestedGatewayProvider->financeProvider = $registeredProvider;
-                    }
+                    $gateways[(string)$gatewayProvider::getId()] = $gatewayProvider;
                 }
             } catch (\Exception|\Throwable $exception) {
-                Log::error('Loading Payment Provider Gateway with ' . $exception->getMessage(), $exception->getTrace() ?? []);
+                Log::error('Loading Payment Provider Gateway with ' . $exception->getMessage());
             }
         }
 
-        if ($requestedGatewayProvider === null) {
-            throw new LiteResponseException(ResponseCode::REQUEST_NOT_FOUND, message: 'Gateway Not Found');
+        $registered = FinanceProvider::whereIn(FinanceProvider::ASSIGNED_ID, array_keys($gateways))->get()->keyBy(FinanceProvider::ASSIGNED_ID);
+
+        $providers = [];
+        foreach ($gateways as $assignedId => $gatewayProvider) {
+            try {
+                $providers[$assignedId] = [$gatewayProvider, $registered->get($assignedId) ?? FinanceProvider::firstOrCreate(
+                    [FinanceProvider::ASSIGNED_ID => $assignedId],
+                    [
+                        FinanceProvider::NAME => $gatewayProvider::getName(),
+                        FinanceProvider::IS_AVAILABLE => $gatewayProvider->isAvailable(),
+                        FinanceProvider::IS_WITHDRAWAL_AVAILABLE => $gatewayProvider->isWithdrawalAvailable(),
+                        FinanceProvider::IS_DEPOSIT_AVAILABLE => $gatewayProvider->isDepositAvailable(),
+                        FinanceProvider::IS_PUBLIC => $gatewayProvider->isPublic(),
+                    ]
+                )];
+            } catch (\Exception|\Throwable $exception) {
+                Log::error('Registering Payment Provider ' . $assignedId . ' with ' . $exception->getMessage());
+            }
         }
 
-        return $requestedGatewayProvider;
+        return $providers;
     }
 
     abstract public static function getId(): string;
@@ -173,6 +195,9 @@ abstract class PaymentProviderGateway implements IPaymentProvider
      */
     public function getResponse(): FinanceProviderGatewayResponse
     {
+        if (!isset($this->response)) {
+            $this->response = new FinanceProviderGatewayResponse($this->transaction->exists ? $this->transaction : null);
+        }
         return $this->response;
     }
 
@@ -222,17 +247,80 @@ abstract class PaymentProviderGateway implements IPaymentProvider
         return $wallet;
     }
 
+    /**
+     * Returns null when the transaction is unknown; $this->transaction then stays an unsaved model
+     * so that provider code reading it does not crash, and the callback is answered "not found".
+     */
     protected function findTransaction(Request $request, string $key): ?FinanceTransaction
     {
         $transactionId = $request->get($key);
-        $this->transaction = FinanceTransaction::find($transactionId);
-        if (empty($this->transaction)) {
+        $transaction = is_scalar($transactionId) ? FinanceTransaction::find((string)$transactionId) : null;
+        if ($transaction === null) {
             $id = static::getId();
-            Log::error("**Payment** | $id : order not found $transactionId");
+            Log::error("**Payment** | $id : order not found");
+            $this->transaction = new FinanceTransaction();
             $this->message = "Order not found !";
             $this->successful = false;
-            $this->response = new FinanceProviderGatewayResponse(null, null, $request->all());
+            $this->response = new FinanceProviderGatewayResponse(null, null, []);
+            return null;
         }
+        $this->transaction = $transaction;
         return $this->transaction;
+    }
+
+    /**
+     * The provider says the payment definitively failed (authenticated callback): the transaction can be closed as FAILED.
+     * Without it, an unsuccessful callback leaves the transaction PENDING, so a later genuine success can still complete it.
+     */
+    protected function markDefinitiveFailure(): void
+    {
+        $this->successful = false;
+        $this->definitiveFailure = true;
+    }
+
+    /**
+     * The callback could not be authenticated (bad hash/signature): it must not change the transaction.
+     */
+    protected function rejectCallback(string $reason): void
+    {
+        $this->successful = false;
+        $this->definitiveFailure = false;
+        $this->rejectionReason = $reason;
+    }
+
+    public function isCallbackRejected(): bool
+    {
+        return $this->rejectionReason !== null;
+    }
+
+    /**
+     * A callback may only settle a transaction started with this provider
+     */
+    public function ownsTransaction(): bool
+    {
+        return isset($this->financeProvider)
+            && (string)$this->transaction->{FinanceTransaction::FINANCE_PROVIDER_ID} === (string)$this->financeProvider->getKey();
+    }
+
+    public function getRejectionReason(): ?string
+    {
+        return $this->rejectionReason;
+    }
+
+    /**
+     * State to give to the transaction after a provider answer: COMPLETED only on success with a provider reference,
+     * FAILED only on a definitive failure, null to leave it PENDING.
+     */
+    public function resolveState(): ?string
+    {
+        if ($this->isCallbackRejected()) {
+            return null;
+        }
+
+        if ($this->successful() && !empty($this->transaction->{FinanceTransaction::EXTERNAL_ID})) {
+            return FinanceTransaction::STATE_COMPLETED;
+        }
+
+        return $this->definitiveFailure ? FinanceTransaction::STATE_FAILED : null;
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
+use NYCorp\Finance\Integrity\Signer;
 use NYCorp\Finance\Scope\InvalidWalletScope;
 
 class FinanceWallet extends Model
@@ -56,14 +57,29 @@ class FinanceWallet extends Model
         //Exclude all wallet with unsuccessfully transaction
         static::addGlobalScope(new InvalidWalletScope());
 
+        // "creating" runs after "saving": the checksum is computed once the id exists
         static::creating(static function ($model) {
-            $model->id = Str::uuid(); // Generate UUID as a string for ID
+            $model->id = Str::uuid()->toString(); // Generate UUID as a string for ID
+            $model->{self::CHECKSUM} = $model->calculateChecksum();
         });
 
         // Automatically set the checksum when saving the model.
         static::saving(static function ($wallet) {
-            $wallet->{self::CHECKSUM} = $wallet->calculateChecksum();
+            if ($wallet->exists) {
+                $wallet->{self::CHECKSUM} = $wallet->calculateChecksum();
+            }
         });
+    }
+
+    protected function checksumFields(?string $id): array
+    {
+        return [
+            $id,
+            $this->{self::OWNER_ID},
+            $this->{self::OWNER_TYPE},
+            $this->{self::TRANSFER_FROM_WALLET_ID},
+            $this->{self::FINANCE_TRANSACTION_ID},
+        ];
     }
 
     /**
@@ -73,16 +89,12 @@ class FinanceWallet extends Model
      */
     public function calculateChecksum(): string
     {
-        $data = [
-            $this->{self::ID},
-            $this->{self::OWNER_ID},
-            $this->{self::OWNER_TYPE},
-            $this->{self::TRANSFER_FROM_WALLET_ID},
-            $this->{self::FINANCE_TRANSACTION_ID},
-        ];
+        if (Signer::isEnabled()) {
+            return Signer::sign($this->checksumFields($this->{self::ID}));
+        }
 
         // Generate the checksum using SHA-256 or any other preferred hash algorithm
-        return hash('sha256', implode('|', $data));
+        return hash('sha256', implode('|', $this->checksumFields($this->{self::ID})));
     }
 
     /**
@@ -132,6 +144,17 @@ class FinanceWallet extends Model
      */
     public function verifyChecksum(): bool
     {
-        return $this->{self::CHECKSUM} === $this->calculateChecksum();
+        $stored = $this->{self::CHECKSUM};
+        if (Signer::isSigned($stored)) {
+            return Signer::verify($this->checksumFields($this->{self::ID}), $stored);
+        }
+
+        if (!is_string($stored)) {
+            return false;
+        }
+
+        // Legacy rows were hashed before their id was generated, hence the empty id variant
+        return hash_equals(hash('sha256', implode('|', $this->checksumFields($this->{self::ID}))), $stored)
+            || hash_equals(hash('sha256', implode('|', $this->checksumFields(null))), $stored);
     }
 }

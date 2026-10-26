@@ -55,4 +55,39 @@ class ConfigReader
     {
         return config(self::FINANCE_CONFIG . ".refresh_account_ttl");
     }
+
+    public static function getSignatureKeyId()
+    {
+        return config(self::FINANCE_CONFIG . ".signature.key_id", 'k1');
+    }
+
+    public static function getSignatureKey()
+    {
+        return config(self::FINANCE_CONFIG . ".signature.key");
+    }
+
+    public static function getSignaturePreviousKeys()
+    {
+        return config(self::FINANCE_CONFIG . ".signature.previous_keys", []);
+    }
+
+    public static function getPendingReservationTtl(): int
+    {
+        return (int)config(self::FINANCE_CONFIG . ".pending_reservation_ttl", 60);
+    }
+
+    public static function getRedactedLogKeys(): array
+    {
+        return (array)config(self::FINANCE_CONFIG . ".log.redacted_keys", []);
+    }
+
+    public static function shouldAnonymizeIp(): bool
+    {
+        return (bool)config(self::FINANCE_CONFIG . ".log.anonymize_ip", true);
+    }
+
+    public static function getSmsVerifyThrottle(): string
+    {
+        return (string)config(self::FINANCE_CONFIG . ".sms_verify_throttle", '5,1');
+    }
 }
