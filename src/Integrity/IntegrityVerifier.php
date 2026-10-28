@@ -3,7 +3,6 @@
 namespace NYCorp\Finance\Integrity;
 
 use Illuminate\Support\Facades\DB;
-use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceAuditLog;
 use NYCorp\Finance\Models\FinanceChainEntry;
@@ -68,10 +67,7 @@ class IntegrityVerifier
     {
         $versions = [];
         $count = 0;
-        $acknowledged = [];
-        foreach (ConfigReader::getAcknowledgedTransactions() as $id => $reason) {
-            $acknowledged[(string)$id] = (string)$reason;
-        }
+        $acknowledged = AcknowledgedTransactions::all();
         $seen = [];
         $accepted = 0;
 
@@ -108,7 +104,7 @@ class IntegrityVerifier
                 $seen[$id] = true;
                 if (empty($failures)) {
                     $this->warning('transaction', $id, 'Acknowledged transaction now verifies: remove it from finance.integrity.acknowledged');
-                } elseif (ConfigReader::getAcknowledgedMode() === 'rounding' && !$this->explainedByRounding($transaction)) {
+                } elseif (!AcknowledgedTransactions::accepts($transaction)) {
                     foreach ($failures as $failure) {
                         $this->error('transaction', $id, "$failure (acknowledged, but the signature does not verify with the start_log amount either)");
                     }
@@ -131,28 +127,6 @@ class IntegrityVerifier
         if (($versions['v1'] ?? 0) > 0) {
             $this->warning('transaction', null, "{$versions['v1']} transaction(s) signed with v1, which hashes column names only and proves nothing");
         }
-    }
-
-    /**
-     * Before 2.0 the amount was signed with up to 6 decimals, then rounded to 5 by the column. The row is genuine when
-     * its signatures verify with the amount of the start_log (with the sign of the movement) and that amount rounds
-     * to the stored one.
-     */
-    private function explainedByRounding(FinanceTransaction $transaction): bool
-    {
-        $logged = data_get($transaction->start_log, 'parameters.amount');
-        if (!is_numeric($logged)) {
-            return false;
-        }
-
-        $stored = (float)$transaction->amount;
-        $signed = abs((float)$logged) * ($stored < 0 ? -1 : 1);
-        if (abs(round($signed, 5) - $stored) > self::EPSILON) {
-            return false;
-        }
-
-        $original = (clone $transaction)->setAttribute(FinanceTransaction::AMOUNT, $signed);
-        return $original->hasValidStartSignature() && (!$original->is_locked || $original->verifyChecksum());
     }
 
     private function verifyWallets(): void

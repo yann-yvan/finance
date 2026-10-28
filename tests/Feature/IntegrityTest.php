@@ -403,4 +403,48 @@ class IntegrityTest extends TestCase
         $this->assertTrue($errors->contains(fn($e) => $e['type'] === 'chain' && $e['id'] === (string)$sealed->id));
         $this->assertTrue($errors->contains(fn($e) => $e['type'] === 'account'));
     }
+
+    /**
+     * Two normal old PENDING transactions around one whose start signature fails
+     */
+    private function expiredPendingAroundOneAltered(): FinanceTransaction
+    {
+        $this->user()->credit(FakeGateway::getId(), 10, 'first');
+        $altered = $this->legacyRoundedTransaction('altered');
+        $this->user()->credit(FakeGateway::getId(), 10, 'last');
+        $this->travel(8)->days();
+
+        return $altered;
+    }
+
+    public function test_expire_pending_skips_an_altered_transaction_and_fails(): void
+    {
+        $altered = $this->expiredPendingAroundOneAltered();
+
+        $this->artisan('finance:expire-pending')
+            ->expectsOutputToContain("Skipped transaction {$altered->id}: Start signature has been tampered with.")
+            ->expectsOutputToContain('2 pending transaction(s) canceled, 1 skipped (0 acknowledged, 1 failed)')
+            ->assertFailed();
+
+        $states = FinanceTransaction::pluck('state', 'description')->all();
+        $this->assertSame(['first' => 'CANCELED', 'altered' => 'PENDING', 'last' => 'CANCELED'], array_intersect_key($states, ['first' => 1, 'altered' => 1, 'last' => 1]));
+    }
+
+    public function test_expire_pending_leaves_acknowledged_transactions_untouched(): void
+    {
+        $altered = $this->expiredPendingAroundOneAltered();
+        $this->acknowledge($altered->id);
+
+        $this->artisan('finance:expire-pending')
+            ->expectsOutputToContain("Skipped acknowledged transaction {$altered->id}: rounded before 2.0")
+            ->expectsOutputToContain('2 pending transaction(s) canceled, 1 skipped (1 acknowledged, 0 failed)')
+            ->assertSuccessful();
+
+        $row = $altered->fresh();
+        $this->assertSame('PENDING', $row->state);
+        $this->assertSame($altered->start_signature, $row->start_signature);
+        $this->assertNull($row->checksum);
+        $this->assertSame(2, FinanceTransaction::where('state', 'CANCELED')->count());
+        $this->assertTrue((new IntegrityVerifier())->run()->isValid());
+    }
 }

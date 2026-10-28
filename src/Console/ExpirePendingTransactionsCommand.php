@@ -3,6 +3,9 @@
 namespace NYCorp\Finance\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
+use NYCorp\Finance\Exceptions\FinanceException;
+use NYCorp\Finance\Integrity\AcknowledgedTransactions;
 use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
 use NYCorp\Finance\Models\FinanceTransaction;
 
@@ -27,17 +30,35 @@ class ExpirePendingTransactionsCommand extends Command
             return self::SUCCESS;
         }
 
-        $canceled = 0;
-        $query->chunkById(200, function ($transactions) use (&$canceled, $minutes) {
+        $canceled = $acknowledged = $failed = 0;
+        $query->chunkById(200, function ($transactions) use (&$canceled, &$acknowledged, &$failed, $minutes) {
             foreach ($transactions as $transaction) {
-                FinanceTransactionController::close($transaction, FinanceTransaction::STATE_CANCELED, ['reason' => 'expired', 'after_minutes' => $minutes]);
+                // Canceling would checksum a row whose start signature fails: leave it PENDING, the proof intact
+                if (AcknowledgedTransactions::accepts($transaction)) {
+                    $acknowledged++;
+                    $this->warn("Skipped acknowledged transaction {$transaction->id}: " . AcknowledgedTransactions::reason($transaction));
+                    continue;
+                }
+
+                try {
+                    FinanceTransactionController::close($transaction, FinanceTransaction::STATE_CANCELED, ['reason' => 'expired', 'after_minutes' => $minutes]);
+                } catch (\Throwable $e) {
+                    // One bad row must not block the others; the message of other exceptions may hold data
+                    $failed++;
+                    $reason = $e instanceof FinanceException ? $e->getMessage() : $e::class;
+                    Log::error("finance:expire-pending could not cancel transaction {$transaction->id}", ['reason' => $reason]);
+                    $this->error("Skipped transaction {$transaction->id}: $reason");
+                    continue;
+                }
+
                 if ($transaction->fresh()?->state === FinanceTransaction::STATE_CANCELED) {
                     $canceled++;
                 }
             }
         }, FinanceTransaction::ID);
 
-        $this->info("$canceled pending transaction(s) canceled.");
-        return self::SUCCESS;
+        $skipped = $acknowledged + $failed;
+        $this->info("$canceled pending transaction(s) canceled, $skipped skipped ($acknowledged acknowledged, $failed failed).");
+        return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }
 }

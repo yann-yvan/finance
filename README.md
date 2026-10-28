@@ -320,6 +320,9 @@ Modes:
   alteration, e.g. a rewritten amount, stays an error even when the id is listed.
 * `any`: every listed id is accepted as is. Use it only for failures with another proven cause.
 
+`finance:expire-pending` skips acknowledged PENDING rows and leaves them untouched (canceling would checksum a failing
+start signature). Any other transaction it cannot cancel is logged and skipped; the command then exits with 1.
+
 Never re-sign such rows: the original signature is the proof that the amount was not changed beyond rounding.
 Since 2.0 amounts are rounded before being signed, so new rows are not affected.
 
