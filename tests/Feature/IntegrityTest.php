@@ -447,4 +447,34 @@ class IntegrityTest extends TestCase
         $this->assertSame(2, FinanceTransaction::where('state', 'CANCELED')->count());
         $this->assertTrue((new IntegrityVerifier())->run()->isValid());
     }
+
+    public function test_expire_pending_sees_every_transaction_once_across_pages(): void
+    {
+        $altered = $this->legacyRoundedTransaction('altered');
+        $this->acknowledge($altered->id);
+        $this->travel(-1)->days();
+        $this->user()->credit(FakeGateway::getId(), 10, 'template');
+        $template = (array)DB::table('finance_transactions')->where('description', 'template')->first();
+
+        // created_at in the reverse order of the ids, over more than one page of 200
+        $rows = [];
+        for ($i = 0; $i < 450; $i++) {
+            $copy = (new FinanceTransaction())->newFromBuilder(array_merge($template, ['id' => sprintf('00000000-0000-4000-8000-%012d', $i)]));
+            $copy->generateStartSignature();
+            $rows[] = array_merge($template, [
+                'id' => $copy->id,
+                'start_signature' => $copy->start_signature,
+                'created_at' => now()->subMinutes($i)->format('Y-m-d H:i:s'),
+            ]);
+        }
+        foreach (array_chunk($rows, 100) as $chunk) {
+            DB::table('finance_transactions')->insert($chunk);
+        }
+        $this->travel(9)->days();
+
+        $this->artisan('finance:expire-pending')
+            ->expectsOutputToContain('451 pending transaction(s) canceled, 1 skipped (1 acknowledged, 0 failed)')
+            ->assertSuccessful();
+        $this->assertSame(['altered'], FinanceTransaction::where('state', 'PENDING')->pluck('description')->all());
+    }
 }

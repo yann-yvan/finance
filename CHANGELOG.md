@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.1
+
+### Fixed
+
+- `finance:expire-pending` sorted on `created_at` while paging with `chunkById` (id > last id): pages overlapped, so
+  some transactions were seen twice (wrong `skipped` count) and others were left PENDING until the next run. The
+  command now pages on the id only, and each transaction is seen exactly once per run.
+
 ## 2.1.0
 
 ### Added

@@ -22,8 +22,7 @@ class ExpirePendingTransactionsCommand extends Command
         $minutes = max(1, (int)$this->option('minutes'));
         $query = FinanceTransaction::where(FinanceTransaction::STATE, FinanceTransaction::STATE_PENDING)
             ->where(FinanceTransaction::IS_LOCKED, false)
-            ->where('created_at', '<', now()->subMinutes($minutes))
-            ->orderBy('created_at');
+            ->where('created_at', '<', now()->subMinutes($minutes));
 
         if ($this->option('dry-run')) {
             $this->info((clone $query)->count() . " pending transaction(s) older than $minutes minute(s).");
@@ -31,6 +30,7 @@ class ExpirePendingTransactionsCommand extends Command
         }
 
         $canceled = $acknowledged = $failed = 0;
+        // chunkById pages on id > last id: any other order would overlap pages and skip rows
         $query->chunkById(200, function ($transactions) use (&$canceled, &$acknowledged, &$failed, $minutes) {
             foreach ($transactions as $transaction) {
                 // Canceling would checksum a row whose start signature fails: leave it PENDING, the proof intact
