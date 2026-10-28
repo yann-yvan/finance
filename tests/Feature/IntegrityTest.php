@@ -426,8 +426,8 @@ class IntegrityTest extends TestCase
             ->expectsOutputToContain('2 pending transaction(s) canceled, 1 skipped (0 acknowledged, 1 failed)')
             ->assertFailed();
 
-        $states = FinanceTransaction::pluck('state', 'description')->all();
-        $this->assertSame(['first' => 'CANCELED', 'altered' => 'PENDING', 'last' => 'CANCELED'], array_intersect_key($states, ['first' => 1, 'altered' => 1, 'last' => 1]));
+        $states = FinanceTransaction::pluck('state', 'description');
+        $this->assertSame(['CANCELED', 'PENDING', 'CANCELED'], [$states['first'], $states['altered'], $states['last']]);
     }
 
     public function test_expire_pending_leaves_acknowledged_transactions_untouched(): void
