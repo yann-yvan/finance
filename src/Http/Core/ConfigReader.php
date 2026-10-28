@@ -90,4 +90,14 @@ class ConfigReader
     {
         return (string)config(self::FINANCE_CONFIG . ".sms_verify_throttle", '5,1');
     }
+
+    public static function getAcknowledgedTransactions(): array
+    {
+        return (array)config(self::FINANCE_CONFIG . ".integrity.acknowledged", []);
+    }
+
+    public static function getAcknowledgedMode(): string
+    {
+        return (string)config(self::FINANCE_CONFIG . ".integrity.acknowledged_mode", 'rounding');
+    }
 }

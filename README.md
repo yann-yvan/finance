@@ -292,6 +292,37 @@ php artisan finance:seal-history                # once after upgrading: seal the
 php artisan finance:expire-pending --minutes=10080   # cancel transactions a provider never answered
 ```
 
+### Acknowledged transactions
+
+A legacy row whose signature failure was investigated and found genuine can be listed in the published config
+(`config/finance.php`), as transaction id => reason:
+
+```php
+'integrity' => [
+    'acknowledged' => [
+        '340fe1de-e9a8-4218-a572-8e3f946c76cd' => 'Fee signed with 6 decimals before 2.0, column rounded to 5',
+        '4df0cace-0e0a-471b-aa6b-d98ea9094e82' => 'Fee signed with 6 decimals before 2.0, column rounded to 5',
+    ],
+    'acknowledged_mode' => env('FINANCE_INTEGRITY_ACKNOWLEDGED_MODE', 'rounding'),
+],
+```
+
+`finance:verify-integrity` then reports their start signature or checksum failure as a warning quoting the reason, and
+counts them in `acknowledged_transactions`. Nothing else is skipped: their chain entry, wallet and the owner's balance
+are verified as usual, and any other error on the row (locked in the wrong state, not locked) stays an error. A listed
+id that no longer exists, or whose signature verifies again, produces a warning so the list can be cleaned up.
+
+Modes:
+
+* `rounding` (default): before 2.0 an amount could be signed with 6 decimals (`-0.004572`) and then rounded to 5 by
+  the `amount` column (`-0.00457`). The entry is accepted only if the signatures verify with the amount of
+  `start_log.parameters.amount` (with the sign of the movement) and that amount rounds to the stored one. Any other
+  alteration, e.g. a rewritten amount, stays an error even when the id is listed.
+* `any`: every listed id is accepted as is. Use it only for failures with another proven cause.
+
+Never re-sign such rows: the original signature is the proof that the amount was not changed beyond rounding.
+Since 2.0 amounts are rounded before being signed, so new rows are not affected.
+
 Upgrading to 2.0: publish and run the four new migrations, set the key, run `finance:seal-history`, restart the queue
 workers, then schedule `finance:verify-integrity`.
 

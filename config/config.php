@@ -52,6 +52,25 @@ return [
         'previous_keys' => env('FINANCE_SIGNATURE_PREVIOUS_KEYS', ''),
     ],
 
+    /*
+       |--------------------------------------------------------------------------
+       | Acknowledged transactions
+       |--------------------------------------------------------------------------
+       |
+       | Legacy transactions whose signature failure was investigated and accepted, as id => reason.
+       | finance:verify-integrity reports them as warnings instead of errors; the chain, wallets and balances
+       | are still verified. In "rounding" mode (default) an entry is only accepted when the signature verifies
+       | with the amount found in start_log (amount signed with 6 decimals then rounded to 5 by the column);
+       | "any" accepts every listed id.
+       |
+       */
+    'integrity' => [
+        'acknowledged' => [
+            // '340fe1de-e9a8-4218-a572-8e3f946c76cd' => 'Fee signed with 6 decimals before 2.0, column rounded to 5',
+        ],
+        'acknowledged_mode' => env('FINANCE_INTEGRITY_ACKNOWLEDGED_MODE', 'rounding'),
+    ],
+
     # Pending debits younger than this (in minutes) are reserved when checking a new withdrawal
     'pending_reservation_ttl' => env('FINANCE_PENDING_RESERVATION_TTL', 60),
 

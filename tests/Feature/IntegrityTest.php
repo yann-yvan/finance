@@ -299,4 +299,108 @@ class IntegrityTest extends TestCase
         $this->assertStringStartsWith('v3:k1:', $first->checksum);
         $this->assertTrue($first->fresh()->verifyChecksum());
     }
+
+    /**
+     * Rewrite a pending transaction as the library did before 2.0: amount signed with 6 decimals, column rounded to 5
+     */
+    private function legacyRoundedTransaction(string $description = 'fee'): FinanceTransaction
+    {
+        $this->user()->credit(FakeGateway::getId(), 10, $description);
+        $transaction = FinanceTransaction::where('description', $description)->sole();
+        $transaction->start_log = ['parameters' => ['amount' => 10.000004]];
+        $transaction->amount = 10.000004;
+        $transaction->generateStartSignature();
+        // MySQL guards start_signature in before_finance_transaction_update, SQLite in a trigger of its own
+        $this->dropTrigger('before_finance_transaction_update');
+        $this->dropTrigger('prevent_start_signature_update');
+        DB::table('finance_transactions')->where('id', $transaction->id)->update([
+            'amount' => 10,
+            'start_log' => json_encode($transaction->start_log),
+            'start_signature' => $transaction->start_signature,
+        ]);
+
+        return $transaction->fresh();
+    }
+
+    private function acknowledge(string ...$ids): void
+    {
+        config()->set('finance.integrity.acknowledged', array_fill_keys($ids, 'rounded before 2.0'));
+    }
+
+    public function test_acknowledged_rounding_error_becomes_a_warning(): void
+    {
+        $transaction = $this->legacyRoundedTransaction();
+        $this->assertFalse((new IntegrityVerifier())->run()->isValid());
+
+        $this->acknowledge($transaction->id);
+        $verifier = (new IntegrityVerifier())->run();
+
+        $this->assertTrue($verifier->isValid(), json_encode($verifier->errors()));
+        $this->assertSame(1, $verifier->stats()['acknowledged_transactions']);
+        $warning = collect($verifier->warnings())->firstWhere('id', $transaction->id);
+        $this->assertStringContainsString('acknowledged (rounded before 2.0)', $warning['message']);
+        $this->artisan('finance:verify-integrity')->assertSuccessful();
+    }
+
+    public function test_acknowledged_rounding_error_on_a_legacy_v2_row(): void
+    {
+        config()->set('finance.signature.key', null);
+        $transaction = $this->legacyRoundedTransaction();
+        $this->assertSame(2, (int)$transaction->signature_version);
+        $this->assertFalse($transaction->hasValidStartSignature());
+
+        $this->acknowledge($transaction->id);
+        $verifier = (new IntegrityVerifier())->run();
+        $this->assertTrue($verifier->isValid(), json_encode($verifier->errors()));
+        $this->assertSame(1, $verifier->stats()['acknowledged_transactions']);
+    }
+
+    public function test_acknowledged_transaction_with_a_real_alteration_stays_an_error(): void
+    {
+        $transaction = $this->legacyRoundedTransaction();
+        DB::table('finance_transactions')->where('id', $transaction->id)->update(['amount' => 1000]);
+        $this->acknowledge($transaction->id);
+
+        $verifier = (new IntegrityVerifier())->run();
+        $this->assertFalse($verifier->isValid());
+        $this->assertStringContainsString('does not verify with the start_log amount', $verifier->errors()[0]['message']);
+        $this->assertSame(0, $verifier->stats()['acknowledged_transactions']);
+
+        // "any" trusts the list as is
+        config()->set('finance.integrity.acknowledged_mode', 'any');
+        $this->assertTrue((new IntegrityVerifier())->run()->isValid());
+    }
+
+    public function test_unknown_or_valid_acknowledged_ids_are_warnings(): void
+    {
+        $this->user()->credit(DefaultPaymentProvider::getId(), 10, 'clean');
+        $clean = FinanceTransaction::sole();
+        $this->acknowledge($clean->id, $missing = Str::uuid()->toString());
+
+        $verifier = (new IntegrityVerifier())->run();
+        $this->assertTrue($verifier->isValid(), json_encode($verifier->errors()));
+        $this->assertSame(0, $verifier->stats()['acknowledged_transactions']);
+        $warnings = collect($verifier->warnings())->keyBy('id');
+        $this->assertStringContainsString('now verifies', $warnings[$clean->id]['message']);
+        $this->assertStringContainsString('does not exist', $warnings[$missing]['message']);
+    }
+
+    public function test_acknowledgement_does_not_hide_chain_or_balance_errors(): void
+    {
+        $user = $this->user();
+        foreach ([10, 20] as $amount) {
+            $user->credit(DefaultPaymentProvider::getId(), $amount, "credit $amount");
+        }
+        $sealed = FinanceTransaction::where('amount', 20)->sole();
+        $this->dropTrigger('prevent_delete_finance_chain_entries');
+        DB::table('finance_chain_entries')->where('finance_transaction_id', $sealed->id)->delete();
+        DB::table('finance_accounts')->update(['credibility' => 999]);
+        $this->acknowledge($sealed->id);
+        config()->set('finance.integrity.acknowledged_mode', 'any');
+
+        $verifier = (new IntegrityVerifier())->run();
+        $errors = collect($verifier->errors());
+        $this->assertTrue($errors->contains(fn($e) => $e['type'] === 'chain' && $e['id'] === (string)$sealed->id));
+        $this->assertTrue($errors->contains(fn($e) => $e['type'] === 'account'));
+    }
 }

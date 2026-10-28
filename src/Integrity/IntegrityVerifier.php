@@ -3,6 +3,7 @@
 namespace NYCorp\Finance\Integrity;
 
 use Illuminate\Support\Facades\DB;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Models\FinanceAccount;
 use NYCorp\Finance\Models\FinanceAuditLog;
 use NYCorp\Finance\Models\FinanceChainEntry;
@@ -67,33 +68,91 @@ class IntegrityVerifier
     {
         $versions = [];
         $count = 0;
-        FinanceTransaction::query()->orderBy(FinanceTransaction::ID)->chunk(500, function ($transactions) use (&$versions, &$count) {
+        $acknowledged = [];
+        foreach (ConfigReader::getAcknowledgedTransactions() as $id => $reason) {
+            $acknowledged[(string)$id] = (string)$reason;
+        }
+        $seen = [];
+        $accepted = 0;
+
+        FinanceTransaction::query()->orderBy(FinanceTransaction::ID)->chunk(500, function ($transactions) use (&$versions, &$count, $acknowledged, &$seen, &$accepted) {
             foreach ($transactions as $transaction) {
                 $count++;
                 $version = (int)($transaction->signature_version ?? 1);
                 $versions["v$version"] = ($versions["v$version"] ?? 0) + 1;
 
+                // Signature failures, which an acknowledgement can turn into warnings
+                $failures = [];
                 if (!$transaction->hasValidStartSignature()) {
-                    $this->error('transaction', $transaction->id, 'Start signature does not match the transaction (amount, currency, description or provider altered)');
+                    $failures[] = 'Start signature does not match the transaction (amount, currency, description or provider altered)';
                 }
 
                 if ($transaction->is_locked) {
                     if (!$transaction->requiresFinalization()) {
                         $this->error('transaction', $transaction->id, "Locked transaction in state {$transaction->state}");
                     } elseif (!$transaction->verifyChecksum()) {
-                        $this->error('transaction', $transaction->id, 'Checksum does not match the finalized transaction');
+                        $failures[] = 'Checksum does not match the finalized transaction';
                     }
                 } elseif ($transaction->requiresFinalization()) {
                     $this->error('transaction', $transaction->id, "Transaction in state {$transaction->state} is not locked");
                 }
+
+                $id = (string)$transaction->id;
+                if (!array_key_exists($id, $acknowledged)) {
+                    foreach ($failures as $failure) {
+                        $this->error('transaction', $id, $failure);
+                    }
+                    continue;
+                }
+
+                $seen[$id] = true;
+                if (empty($failures)) {
+                    $this->warning('transaction', $id, 'Acknowledged transaction now verifies: remove it from finance.integrity.acknowledged');
+                } elseif (ConfigReader::getAcknowledgedMode() === 'rounding' && !$this->explainedByRounding($transaction)) {
+                    foreach ($failures as $failure) {
+                        $this->error('transaction', $id, "$failure (acknowledged, but the signature does not verify with the start_log amount either)");
+                    }
+                } else {
+                    $accepted++;
+                    foreach ($failures as $failure) {
+                        $this->warning('transaction', $id, "$failure: acknowledged ({$acknowledged[$id]})");
+                    }
+                }
             }
         });
 
+        foreach (array_diff_key($acknowledged, $seen) as $id => $reason) {
+            $this->warning('transaction', $id, 'Acknowledged transaction does not exist: remove it from finance.integrity.acknowledged');
+        }
+
         $this->stats['transactions'] = $count;
         $this->stats['transactions_by_signature'] = $versions;
+        $this->stats['acknowledged_transactions'] = $accepted;
         if (($versions['v1'] ?? 0) > 0) {
             $this->warning('transaction', null, "{$versions['v1']} transaction(s) signed with v1, which hashes column names only and proves nothing");
         }
+    }
+
+    /**
+     * Before 2.0 the amount was signed with up to 6 decimals, then rounded to 5 by the column. The row is genuine when
+     * its signatures verify with the amount of the start_log (with the sign of the movement) and that amount rounds
+     * to the stored one.
+     */
+    private function explainedByRounding(FinanceTransaction $transaction): bool
+    {
+        $logged = data_get($transaction->start_log, 'parameters.amount');
+        if (!is_numeric($logged)) {
+            return false;
+        }
+
+        $stored = (float)$transaction->amount;
+        $signed = abs((float)$logged) * ($stored < 0 ? -1 : 1);
+        if (abs(round($signed, 5) - $stored) > self::EPSILON) {
+            return false;
+        }
+
+        $original = (clone $transaction)->setAttribute(FinanceTransaction::AMOUNT, $signed);
+        return $original->hasValidStartSignature() && (!$original->is_locked || $original->verifyChecksum());
     }
 
     private function verifyWallets(): void
