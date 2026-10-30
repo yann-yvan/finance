@@ -72,7 +72,7 @@ class FinanceServiceProvider extends ServiceProvider
             $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
         });
 
-        Route::group(["prefix" => config(ConfigReader::FINANCE_CONFIG . ".prefix")], function () {
+        Route::group(["prefix" => ConfigReader::getRoutePrefix()], function () {
             $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
         });
     }
@@ -80,7 +80,7 @@ class FinanceServiceProvider extends ServiceProvider
     protected function routeConfiguration(): array
     {
         return [
-            'prefix' => "api/" . config(ConfigReader::FINANCE_CONFIG . ".prefix"),
+            'prefix' => ConfigReader::getApiRoutePrefix(),
             'middleware' => config(ConfigReader::FINANCE_CONFIG . '.middleware'),
         ];
 

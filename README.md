@@ -257,7 +257,8 @@ return [
     ],
 
     'force_balance_check_min_amount' => 5000,
-    'prefix' => 'finance',
+    'api_prefix' => env('FINANCE_API_PREFIX', 'api'),       # API routes: {api_prefix}/{prefix}/... (api/finance)
+    'prefix' => env('FINANCE_ROUTE_PREFIX', 'finance'),     # web routes: {prefix}/...
     'middleware' => ['api'],
 
 
@@ -265,6 +266,10 @@ return [
     'finance_account_id_parameter' => "finance_account_id",
 ];
 ```
+
+The provider callback URLs (`/api/finance/deposit/notification/{provider}`, ...) are built from the route names, so
+they follow `api_prefix` and `prefix`: update the URLs registered with your providers when you change them. Either
+prefix may be empty. A config published before 2.2 has no `api_prefix` and keeps `api`.
 
 
 ## Integrity

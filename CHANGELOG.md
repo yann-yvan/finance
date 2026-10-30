@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0
+
+### Added
+
+- `finance.api_prefix` (`FINANCE_API_PREFIX`, default `api`): the API routes are served under `{api_prefix}/{prefix}`
+  instead of the hard-coded `api/{prefix}`. `finance.prefix` now reads `FINANCE_ROUTE_PREFIX` (default `finance`).
+  Either may be empty; surrounding slashes are ignored. Defaults keep `api/finance`, and a published config without
+  `api_prefix` keeps `api`. Callback URLs follow, so update them at your providers when you change a prefix.
+
 ## 2.1.1
 
 ### Fixed

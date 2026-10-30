@@ -11,7 +11,10 @@ return [
     'exchange_rate_refresh_ttl' => env('EXCHANGE_RATE_REFRESH_TTL', 60 * 24 * 5), # in minute here is 5 days
 
 
-    'prefix' => 'finance',
+    # Routes: the API is served under {api_prefix}/{prefix} (default api/finance), the web routes under {prefix}.
+    # The provider callback URLs follow; tell the providers if you change them. Either may be empty.
+    'api_prefix' => env('FINANCE_API_PREFIX', 'api'),
+    'prefix' => env('FINANCE_ROUTE_PREFIX', 'finance'),
     'middleware' => ['api'],
 
 

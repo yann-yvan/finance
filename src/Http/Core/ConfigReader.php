@@ -100,4 +100,18 @@ class ConfigReader
     {
         return (string)config(self::FINANCE_CONFIG . ".integrity.acknowledged_mode", 'rounding');
     }
+
+    public static function getRoutePrefix(): string
+    {
+        return trim((string)config(self::FINANCE_CONFIG . ".prefix", 'finance'), '/');
+    }
+
+    /**
+     * {api_prefix}/{prefix}, empty segments left out
+     */
+    public static function getApiRoutePrefix(): string
+    {
+        $apiPrefix = trim((string)config(self::FINANCE_CONFIG . ".api_prefix", 'api'), '/');
+        return implode('/', array_filter([$apiPrefix, self::getRoutePrefix()], static fn($segment) => $segment !== ''));
+    }
 }
