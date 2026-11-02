@@ -105,6 +105,30 @@ class PaymentCallbackTest extends TestCase
             ->get()->contains(fn($log) => $log->new_values['reason'] === 'success_on_finalized_transaction'));
     }
 
+    public function test_expiry_delay_comes_from_the_config(): void
+    {
+        config(['finance.pending_expiry_minutes' => 60 * 24 * 3]);
+        $transaction = $this->pendingDeposit();
+
+        $this->travel(2)->days();
+        $this->artisan('finance:expire-pending')->assertSuccessful();
+        $this->assertSame(FinanceTransaction::STATE_PENDING, $transaction->fresh()->state);
+
+        $this->travel(2)->days();
+        $this->artisan('finance:expire-pending')->assertSuccessful();
+        $this->assertSame(FinanceTransaction::STATE_CANCELED, $transaction->fresh()->state);
+    }
+
+    public function test_expiry_option_overrides_the_config(): void
+    {
+        config(['finance.pending_expiry_minutes' => 60 * 24 * 3]);
+        $transaction = $this->pendingDeposit();
+
+        $this->travel(2)->hours();
+        $this->artisan('finance:expire-pending', ['--minutes' => 60])->assertSuccessful();
+        $this->assertSame(FinanceTransaction::STATE_CANCELED, $transaction->fresh()->state);
+    }
+
     public function test_unknown_transaction_is_answered_not_found(): void
     {
         $this->notify(['ref' => 'does-not-exist', 'signature' => 'good', 'status' => 'SUCCESS'])

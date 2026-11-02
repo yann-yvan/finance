@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0
+
+### Added
+
+- `finance.pending_expiry_minutes` (`FINANCE_PENDING_EXPIRY_MINUTES`, default 10080 = 7 days): how long a transaction
+  may stay PENDING before `finance:expire-pending` cancels it. `--minutes` still overrides it; a published config
+  without the key keeps 7 days.
+
 ## 2.2.0
 
 ### Added

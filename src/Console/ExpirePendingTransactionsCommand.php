@@ -7,19 +7,20 @@ use Illuminate\Support\Facades\Log;
 use NYCorp\Finance\Exceptions\FinanceException;
 use NYCorp\Finance\Integrity\AcknowledgedTransactions;
 use NYCorp\Finance\Http\Controllers\FinanceTransactionController;
+use NYCorp\Finance\Http\Core\ConfigReader;
 use NYCorp\Finance\Models\FinanceTransaction;
 
 class ExpirePendingTransactionsCommand extends Command
 {
     protected $signature = 'finance:expire-pending
-                            {--minutes=10080 : Cancel the transactions pending for longer than this (default 7 days)}
+                            {--minutes= : Cancel the transactions pending for longer than this (default finance.pending_expiry_minutes, 7 days)}
                             {--dry-run : Only list them}';
 
     protected $description = 'Cancel the transactions left PENDING by a provider that never answered';
 
     public function handle(): int
     {
-        $minutes = max(1, (int)$this->option('minutes'));
+        $minutes = max(1, (int)($this->option('minutes') ?? ConfigReader::getPendingExpiryMinutes()));
         $query = FinanceTransaction::where(FinanceTransaction::STATE, FinanceTransaction::STATE_PENDING)
             ->where(FinanceTransaction::IS_LOCKED, false)
             ->where('created_at', '<', now()->subMinutes($minutes));

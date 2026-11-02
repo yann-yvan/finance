@@ -76,6 +76,11 @@ class ConfigReader
         return (int)config(self::FINANCE_CONFIG . ".pending_reservation_ttl", 60);
     }
 
+    public static function getPendingExpiryMinutes(): int
+    {
+        return (int)config(self::FINANCE_CONFIG . ".pending_expiry_minutes", 60 * 24 * 7);
+    }
+
     public static function getRedactedLogKeys(): array
     {
         return (array)config(self::FINANCE_CONFIG . ".log.redacted_keys", []);

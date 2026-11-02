@@ -77,6 +77,9 @@ return [
     # Pending debits younger than this (in minutes) are reserved when checking a new withdrawal
     'pending_reservation_ttl' => env('FINANCE_PENDING_RESERVATION_TTL', 60),
 
+    # finance:expire-pending cancels the transactions pending for longer than this (in minutes), 7 days by default
+    'pending_expiry_minutes' => env('FINANCE_PENDING_EXPIRY_MINUTES', 60 * 24 * 7),
+
     /*
        |--------------------------------------------------------------------------
        | Transaction logs

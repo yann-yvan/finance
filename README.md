@@ -294,7 +294,7 @@ Commands:
 ```shell
 php artisan finance:verify-integrity            # exit code 1 on any error; --fix-balances, --json
 php artisan finance:seal-history                # once after upgrading: seal the transactions finalized before the chain
-php artisan finance:expire-pending --minutes=10080   # cancel transactions a provider never answered
+php artisan finance:expire-pending                 # cancel transactions a provider never answered for FINANCE_PENDING_EXPIRY_MINUTES (7 days); --minutes overrides it
 ```
 
 ### Acknowledged transactions
